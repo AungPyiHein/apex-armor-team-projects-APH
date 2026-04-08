@@ -1,0 +1,72 @@
+@inject NavigationManager Nav
+@inject POS.Frontend.Services.ThemeService ThemeService
+
+@{
+    var title = GetPageTitle(Nav.Uri);
+}
+
+<header class="h-14 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0">
+    <!-- Page title -->
+    <div>
+        <h1 class="text-sm font-semibold text-white">@title</h1>
+    </div>
+
+    <!-- Right controls -->
+    <div class="flex items-center gap-3">
+        <!-- Search -->
+        <div class="relative hidden sm:block">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Search…" class="pl-8 pr-4 py-1.5 text-xs rounded-lg border border-border bg-content text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent focus:shadow-neon transition w-44" />
+        </div>
+
+        <!-- Theme toggle -->
+        <button @onclick="ThemeService.ToggleThemeAsync" class="w-8 h-8 rounded-lg border border-border bg-surface flex items-center justify-center text-muted hover:text-gray-900 dark:hover:text-gray-200 hover:bg-content transition relative">
+            <!-- Sun icon -->
+            <svg class="w-4 h-4 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <!-- Moon icon -->
+            <svg class="w-4 h-4 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+
+        <!-- Notification bell -->
+        <button class="w-8 h-8 rounded-lg border border-border bg-surface flex items-center justify-center text-muted hover:text-gray-900 dark:hover:text-gray-200 hover:bg-content transition relative">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span class="absolute top-1 right-1 w-1.5 h-1.5 bg-accent shadow-neon rounded-full"></span>
+        </button>
+
+        <!-- Avatar -->
+        <div class="w-8 h-8 rounded-full bg-accent/20 border border-accent/50 shadow-neon flex items-center justify-center cursor-pointer">
+            <span class="text-accent-light text-xs font-semibold">AD</span>
+        </div>
+    </div>
+</header>
+
+@code {
+    private string GetPageTitle(string uri)
+    {
+        var path = new Uri(uri).AbsolutePath.Trim('/').ToLower();
+        return path switch
+        {
+            "" or "/" => "Dashboard",
+            "sales" => "Sales History",
+            "sales/terminal" => "POS Terminal",
+            var s when s.StartsWith("sales/") => "Sale Detail",
+            "customers" => "Customers",
+            "products" => "Products",
+            "categories" => "Categories",
+            "inventory" => "Inventory",
+            "branches" => "Branches",
+            "merchants" => "Merchants",
+            "settings/users" => "User Management",
+            "settings/profile" => "My Profile",
+            _ => "MiniPOS"
+        };
+    }
+}

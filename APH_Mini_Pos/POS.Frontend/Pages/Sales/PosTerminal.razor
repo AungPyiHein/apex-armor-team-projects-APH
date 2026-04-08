@@ -1,0 +1,572 @@
+@page "/sales/terminal"
+@layout MainLayout
+@using POS.Frontend.Models.Products
+@using POS.Frontend.Models.Categories
+@using POS.Frontend.Models.Sales
+@using POS.Frontend.Models.Merchants
+@using POS.Frontend.Models.Inventory
+@using POS.Shared.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject ISaleService SaleService
+@inject IBranchService BranchService
+@inject ICustomerService CustomerService
+@inject IMerchantService MerchantService
+@inject POS.Frontend.Services.Inventory.IInventoryService InventoryService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="flex gap-4 h-[calc(100vh-7.5rem)]">
+
+    <!-- LEFT: Product browser -->
+    <div class="flex flex-col flex-1 gap-4 min-w-0">
+
+        <!-- Search + category filter -->
+        <div class="flex gap-3">
+            <div class="relative flex-1">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input type="text" placeholder="Search products…" class="form-input pl-9" 
+                       @bind="SearchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
+                @if (isSearching)
+                {
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                    </div>
+                }
+            </div>
+            <select class="form-input w-48 text-xs" value="@selectedBranchId" @onchange="HandleBranchChange">
+                <option value="">— Select Branch —</option>
+                @foreach (var br in BranchList)
+                {
+                    <option value="@br.Id">
+                        @br.Name @(IsStaff && br.Id == staffBranchId ? "(My Branch)" : "")
+                    </option>
+                }
+            </select>
+            <select class="form-input w-40 text-xs" value="@SelectedCategoryIdString" @onchange="HandleCategoryChange">
+                <option value="">All Categories</option>
+                @foreach (var cat in CategoryList)
+                {
+                    <option value="@cat.Id.ToString()">@cat.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Product grid -->
+        <div class="flex-1 overflow-y-auto">
+            @if (isLoading && !isSearching)
+            {
+                <div class="flex items-center justify-center h-full">
+                    <div class="flex flex-col items-center gap-2">
+                        <svg class="animate-spin h-8 w-8 text-accent" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <p class="text-sm text-muted">Loading products...</p>
+                    </div>
+                </div>
+            }
+            else if (!ProductList.Any())
+            {
+                <div class="flex flex-col items-center justify-center h-full text-center">
+                    <p class="text-sm text-muted">No products found</p>
+                </div>
+            }
+            else
+            {
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    @foreach (var p in ProductList)
+                    {
+                        var stock = BranchInventory.FirstOrDefault(i => i.ProductId == p.Id)?.StockQuantity ?? 0;
+                        var outOfStock = stock <= 0;
+                        var cannotSell = !CanSell;
+                        var isDisabled = outOfStock || cannotSell;
+                        <button class="relative bg-white dark:bg-surface rounded-xl border border-border p-3 text-left hover:border-accent hover:shadow-card-hover transition-all group @(isDisabled ? "opacity-50 cursor-not-allowed" : "")"
+                                disabled="@isDisabled"
+                                @onclick="() => AddToCart(p, stock)">
+                            @if (cannotSell)
+                            {
+                                <div class="absolute top-0 right-0 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-xl rounded-tr-xl z-10">
+                                    VIEW ONLY
+                                </div>
+                            }
+                            else if (outOfStock)
+                            {
+                                <div class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-xl rounded-tr-xl z-10">
+                                    OUT OF STOCK
+                                </div>
+                            }
+                            <div class="w-full h-16 rounded-lg bg-gray-50 dark:bg-surface flex items-center justify-center text-2xl mb-2 group-hover:bg-indigo-50 transition-colors">
+                                @CategoryIconHelper.GetIcon(p.CategoryName)
+                            </div>
+                            <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">@p.Name</p>
+                            <p class="text-xs text-muted">@p.CategoryName</p>
+                            <div class="flex justify-between items-end mt-1">
+                                <p class="text-sm font-bold text-accent">@p.Price.ToString("N0") MMK</p>
+                                @if (!outOfStock)
+                                {
+                                    <p class="text-[10px] text-gray-500 font-medium">@stock in stock</p>
+                                }
+                            </div>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- RIGHT: Cart / Receipt -->
+    <div class="w-80 shrink-0 flex flex-col bg-white dark:bg-surface rounded-2xl border border-border shadow-card overflow-hidden">
+
+        <!-- Cart header -->
+        <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+            <p class="font-semibold text-gray-900 dark:text-gray-100 text-sm">Current Order</p>
+            <button class="text-xs text-red-500 hover:underline" @onclick="ClearCart">Clear</button>
+        </div>
+
+        <!-- Cart items -->
+        <div class="flex-1 overflow-y-auto divide-y divide-border/60">
+            @if (!CartItems.Any())
+            {
+                <div class="flex flex-col items-center justify-center h-full py-12 text-center">
+                    <div class="w-12 h-12 rounded-full bg-gray-50 dark:bg-surface flex items-center justify-center mb-3">
+                        <svg class="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4" /></svg>
+                    </div>
+                    <p class="text-sm text-muted">Cart is empty</p>
+                    <p class="text-xs text-gray-400 mt-1">Tap a product to add it</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var item in CartItems)
+                {
+                    <div class="flex items-center gap-3 px-4 py-3">
+                        <span class="text-lg">@item.Icon</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">@item.Name</p>
+                            <p class="text-xs text-accent font-semibold">@item.Price.ToString("N0") MMK</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button class="w-5 h-5 rounded-md bg-gray-100 dark:bg-border/30 text-gray-600 dark:text-gray-400 text-xs font-bold flex items-center justify-center hover:bg-gray-200"
+                                    @onclick="() => ChangeQty(item, -1)">−</button>
+                            <input type="number" 
+                                   class="w-10 h-6 rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white text-xs font-semibold text-center border border-gray-300 dark:border-gray-600 focus:border-accent outline-none transition-colors" 
+                                   value="@item.Qty" 
+                                   @onchange="@((ChangeEventArgs e) => HandleQtyInputChange(item, e))" />
+                            <button class="w-5 h-5 rounded-md bg-accent/10 text-accent text-xs font-bold flex items-center justify-center hover:bg-accent/20"
+                                    @onclick="() => ChangeQty(item, 1)">+</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Totals -->
+        <div class="px-5 py-4 border-t border-border space-y-2">
+            <div class="flex justify-between text-xs text-muted">
+                <span>Subtotal</span><span>@Subtotal.ToString("N0") MMK</span>
+            </div>
+            <div class="flex justify-between text-xs text-muted">
+                <span>Tax (5%)</span><span>@Tax.ToString("N0") MMK</span>
+            </div>
+            <div class="flex justify-between text-sm font-bold text-gray-900 dark:text-gray-100 pt-2 border-t border-border">
+                <span>Total</span><span>@Total.ToString("N0") MMK</span>
+            </div>
+        </div>
+
+        <!-- Customer select -->
+        <div class="px-5 pb-3">
+            <select class="form-input text-xs" @bind="selectedCustomerId">
+                <option value="">— Walk-in Customer —</option>
+                @foreach (var c in CustomerList)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Status Message -->
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div class="px-5 pb-3">
+                <div class="p-2 rounded text-xs @(isError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600")">
+                    @statusMessage
+                </div>
+            </div>
+        }
+
+        <!-- Charge button -->
+        <div class="px-5 pb-5">
+            <button class="w-full btn-primary justify-center py-3 text-sm font-semibold rounded-xl @(CartItems.Any() && !isProcessing ? "" : "opacity-50 cursor-not-allowed")"
+                    @onclick="HandleCheckout" disabled="@(isProcessing || !CartItems.Any())">
+                @if (isProcessing)
+                {
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>Processing...</span>
+                }
+                else
+                {
+                    <span>Charge @Total.ToString("N0") MMK</span>
+                }
+            </button>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private string SearchQuery = "";
+    private Guid? selectedCategoryId;
+    private bool isLoading = true;
+    private bool isSearching = false;
+    private CancellationTokenSource? _searchCts;
+    private bool IsStaff = false;
+    private Guid? staffBranchId;
+    private bool CanSell => !IsStaff || selectedBranchId == staffBranchId;
+
+    private List<ProductsResponseDto> ProductList = new();
+    private List<CategoryResponseDto> CategoryList = new();
+    private List<BranchResponseDto> BranchList = new();
+    private List<CustomerResponseDto> CustomerList = new();
+    private List<InventoryResponseDto> BranchInventory = new();
+    private List<CartItem> CartItems = new();
+    
+    private Guid? selectedBranchId;
+    private Guid? selectedCustomerId;
+    private bool isProcessing = false;
+    private string statusMessage = "";
+    private bool isError = false;
+    private Guid? currentMerchantId;
+
+    private class CartItem
+    {
+        public Guid ProductId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Qty { get; set; } = 1;
+        public int MaxStock { get; set; } = 0;
+    }
+
+    private string SelectedCategoryIdString => selectedCategoryId?.ToString() ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var role = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                   ?? user.FindFirst("role")?.Value
+                   ?? "";
+        IsStaff = role == "Staff";
+
+        // If Staff, read their BranchId from claims and set it
+        if (IsStaff)
+        {
+            var branchClaim = user.FindFirst("BranchId")?.Value
+                              ?? user.FindFirst("branchId")?.Value;
+            if (Guid.TryParse(branchClaim, out var staffBranch))
+            {
+                staffBranchId = staffBranch;
+                selectedBranchId = staffBranch;
+            }
+        }
+
+        var merchantClaim = user.FindFirst("MerchantId")?.Value ?? user.FindFirst("merchantId")?.Value;
+        if (Guid.TryParse(merchantClaim, out var mId))
+            currentMerchantId = mId;
+
+        // For Staff: load inventory first (from their locked branch) so products show correct stock
+        if (IsStaff && selectedBranchId.HasValue)
+        {
+            await Task.WhenAll(
+                LoadCategories(),
+                LoadBranches(),
+                LoadCustomers(),
+                LoadInventoryForBranch()
+            );
+            await LoadProducts();
+        }
+        else
+        {
+            await Task.WhenAll(LoadCategories(), LoadProducts(), LoadBranches(), LoadCustomers());
+        }
+    }
+
+    private async Task LoadCustomers()
+    {
+        try
+        {
+            Guid? targetMerchant = currentMerchantId;
+            if (targetMerchant == null && !IsStaff)
+            {
+                var merchantsResponse = await MerchantService.GetAllMerchantsAsync(new PaginationFilter { PageSize = 100 });
+                if (merchantsResponse?.Data?.Data != null && merchantsResponse.Data.Data.Any())
+                {
+                    targetMerchant = merchantsResponse.Data.Data.First().Id;
+                }
+            }
+
+            if (targetMerchant.HasValue)
+            {
+                var filter = new PaginationFilter { PageNumber = 1, PageSize = 100 };
+                var response = await CustomerService.GetCustomersAsync(targetMerchant.Value, filter);
+                if (response?.Data?.Data != null)
+                {
+                    CustomerList = response.Data.Data.ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading customers: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBranches()
+    {
+        var response = await BranchService.GetAllBranchesAsync(new PaginationFilter { PageSize = 100 });
+        if (response?.Data?.Data != null)
+        {
+            BranchList = response.Data.Data.ToList();
+            if (!IsStaff && !selectedBranchId.HasValue && BranchList.Any())
+            {
+                // Admin/MerchantAdmin: auto-select first branch and load its inventory
+                selectedBranchId = BranchList.First().Id;
+            }
+            // Staff: inventory already loaded directly in OnInitializedAsync — skip to avoid double call
+            if (!IsStaff && selectedBranchId.HasValue)
+            {
+                await LoadInventoryForBranch();
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCategories()
+    {
+        var response = await CategoryService.GetCategoriesAsync(new PaginationFilter { PageSize = 100 });
+        if (response?.Data?.Data != null)
+        {
+            CategoryList = response.Data.Data.ToList();
+        }
+    }
+
+    private async Task LoadProducts(bool isSearching = false)
+    {
+        if (!isSearching) isLoading = true;
+        this.isSearching = isSearching;
+        try 
+        {
+            var filter = new PaginationFilter() 
+            { 
+                PageNumber = 1, 
+                PageSize = 50,
+                SearchTerm = SearchQuery,
+                CategoryId = selectedCategoryId
+            };
+            var response = await ProductService.GetProductsAsync(filter);
+            if (response?.Data?.Data != null)
+            {
+                ProductList = response.Data.Data.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+            ProductList = new();
+        }
+        finally
+        {
+            isLoading = false;
+            isSearching = false;
+        }
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+            await LoadProducts(isSearching: true);
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellation
+        }
+    }
+
+    private async Task HandleCategoryChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (Guid.TryParse(value, out var guid))
+            selectedCategoryId = guid;
+        else
+            selectedCategoryId = null;
+        
+        await LoadProducts();
+    }
+
+    private async Task HandleBranchChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (Guid.TryParse(value, out var guid))
+        {
+            selectedBranchId = guid;
+            await LoadInventoryForBranch();
+        }
+        else
+        {
+            selectedBranchId = null;
+            BranchInventory.Clear();
+        }
+        CartItems.Clear();
+        statusMessage = "";
+    }
+
+    private async Task LoadInventoryForBranch()
+    {
+        if (selectedBranchId.HasValue)
+        {
+            var response = await InventoryService.GetBranchInventoryAsync(selectedBranchId.Value, new PaginationFilter { PageSize = 1000 });
+            if (response.IsSuccess && response.Data?.Data != null)
+            {
+                BranchInventory = response.Data.Data.ToList();
+            }
+            else
+            {
+                BranchInventory.Clear();
+            }
+        }
+    }
+
+    private decimal Subtotal => CartItems.Sum(i => i.Price * i.Qty);
+    private decimal Tax => Math.Round(Subtotal * 0.05m, 2);
+    private decimal Total => Subtotal + Tax;
+
+    private void AddToCart(ProductsResponseDto p, int stock)
+    {
+        statusMessage = "";
+        isError = false;
+        var existing = CartItems.FirstOrDefault(c => c.ProductId == p.Id);
+        if (existing != null) 
+        {
+            if (existing.Qty < stock)
+                existing.Qty++;
+            else
+            {
+                statusMessage = $"Only {stock} items available.";
+                isError = true;
+            }
+        }
+        else 
+        {
+            if (stock > 0)
+                CartItems.Add(new CartItem 
+                { 
+                    ProductId = p.Id, 
+                    Name = p.Name, 
+                    Icon = CategoryIconHelper.GetIcon(p.CategoryName), 
+                    Price = p.Price,
+                    MaxStock = stock
+                });
+        }
+    }
+
+    private void ChangeQty(CartItem item, int delta)
+    {
+        statusMessage = "";
+        isError = false;
+        if (delta > 0 && item.Qty >= item.MaxStock)
+        {
+            statusMessage = $"Only {item.MaxStock} items available.";
+            isError = true;
+            return;
+        }
+        item.Qty += delta;
+        if (item.Qty <= 0) CartItems.Remove(item);
+    }
+
+    private void HandleQtyInputChange(CartItem item, ChangeEventArgs e)
+    {
+        statusMessage = "";
+        isError = false;
+        if (int.TryParse(e.Value?.ToString(), out var newQty))
+        {
+            if (newQty <= 0)
+            {
+                CartItems.Remove(item);
+            }
+            else if (newQty > item.MaxStock)
+            {
+                item.Qty = item.MaxStock;
+                statusMessage = $"Maximum available quantity is {item.MaxStock}.";
+                isError = true;
+            }
+            else
+            {
+                item.Qty = newQty;
+            }
+        }
+    }
+
+    private void ClearCart() 
+    {
+        CartItems.Clear();
+        statusMessage = "";
+    }
+
+    private async Task HandleCheckout()
+    {
+        if (isProcessing || !CartItems.Any()) return;
+
+        isProcessing = true;
+        statusMessage = "";
+        isError = false;
+
+        try
+        {
+            if (selectedBranchId == null || selectedBranchId == Guid.Empty)
+            {
+                statusMessage = "Please select a branch before checking out.";
+                isError = true;
+                return;
+            }
+
+            var request = new CreateOrderRequest
+            {
+                BranchId = selectedBranchId.Value,
+                CustomerId = selectedCustomerId,
+                Items = CartItems.Select(i => new CreateOrderItemRequest
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Qty
+                }).ToList()
+            };
+
+            var response = await SaleService.CreateOrderAsync(request);
+            if (response != null && response.Message == "Order Created")
+            {
+                statusMessage = "Order completed successfully!";
+                isError = false;
+                CartItems.Clear();
+            }
+            else
+            {
+                statusMessage = response?.Message ?? "Failed to create order";
+                isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+
+}

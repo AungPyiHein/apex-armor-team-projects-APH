@@ -1,0 +1,138 @@
+@page "/sales/{Id}"
+@layout MainLayout
+@using POS.Frontend.Services.Sales
+@using POS.Frontend.Models.Sales
+@using POS.Shared.Models
+@inject ISaleService SaleService
+
+<div class="max-w-2xl space-y-5">
+    @if (_isLoading)
+    {
+        <div class="text-center py-8">
+            <div class="flex flex-col items-center justify-center text-muted">
+                <svg class="animate-spin h-8 w-8 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p>Loading sale details...</p>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage) || _sale == null)
+    {
+        <div class="text-center py-8 text-red-500 card p-5 flex flex-col items-center">
+            <p>@(_errorMessage ?? "Order not found")</p>
+            <a href="sales" class="btn-secondary mt-4 w-fit">Back to Sales</a>
+        </div>
+    }
+    else
+    {
+        <div class="page-header">
+            <div>
+                <h2 class="page-title">Sale #<span title="@_sale.Id">@_sale.Id.ToString().Substring(0, 8)</span></h2>
+                <p class="page-subtitle">Transaction details & receipt</p>
+            </div>
+            <div class="flex gap-2">
+                <button class="btn-secondary" onclick="window.print()">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    Print
+                </button>
+                <a href="sales" class="btn-ghost">← Back</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Receipt</p>
+                <span class="badge badge-success">@_sale.Status</span>
+            </div>
+            <div class="card-body space-y-4">
+
+                <!-- Meta -->
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-xs text-muted font-medium mb-1">Customer</p>
+                        <p class="font-medium">@_sale.CustomerName</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-muted font-medium mb-1">Branch</p>
+                        <p class="font-medium">@_sale.BranchName</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-muted font-medium mb-1">Date & Time</p>
+                        <p class="font-medium">@_sale.OrderDate.ToString("dd MMM yyyy, HH:mm")</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-muted font-medium mb-1">Cashier</p>
+                        <p class="font-medium">Admin User</p>
+                    </div>
+                </div>
+
+                <hr class="border-border" />
+
+                <!-- Line items -->
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Unit Price</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _sale.Items)
+                        {
+                            <tr>
+                                <td>@item.ProductName</td>
+                                <td class="text-right">@item.Quantity</td>
+                                <td class="text-right">@item.UnitPrice.ToString("N0") MMK</td>
+                                <td class="text-right font-medium">@item.SubTotal.ToString("N0") MMK</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <hr class="border-border" />
+
+                <!-- Totals -->
+                <div class="space-y-1 text-sm">
+                    <div class="flex justify-between font-bold text-gray-900 dark:text-gray-100 text-base pt-1">
+                        <span>Total</span>
+                        <span>@_sale.TotalAmount.ToString("N0") MMK</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    private OrderResponseDto? _sale;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Guid.TryParse(Id, out var orderId))
+        {
+            var response = await SaleService.GetOrderByIdAsync(orderId);
+            if (response?.Data != null)
+            {
+                _sale = response.Data;
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "Unknown error occurred";
+            }
+        }
+        else
+        {
+            _errorMessage = "Invalid Order ID given.";
+        }
+        _isLoading = false;
+    }
+}

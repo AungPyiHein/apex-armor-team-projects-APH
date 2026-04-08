@@ -1,0 +1,144 @@
+@page "/login"
+@using POS.Shared.Models
+@attribute [AllowAnonymous]
+@layout EmptyLayout
+
+<div class="min-h-screen bg-sidebar flex">
+
+    <!-- Left: Branding / Image -->
+    <div class="hidden lg:flex flex-1 flex-col justify-between p-12 bg-sidebar border-r border-dark-border relative overflow-hidden">
+        <!-- Abstract background shapes -->
+        <div class="absolute -top-24 -left-24 w-96 h-96 bg-accent rounded-full opacity-10 blur-3xl mix-blend-screen"></div>
+        <div class="absolute bottom-12 right-12 w-80 h-80 bg-indigo-600 rounded-full opacity-10 blur-3xl mix-blend-screen"></div>
+
+        <div class="relative z-10">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shrink-0 shadow-lg">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h1 class="text-white font-bold tracking-wide text-2xl">MiniPOS</h1>
+            </div>
+            <h2 class="text-4xl font-bold text-white leading-tight mt-16 max-w-sm">
+                Streamline your business operations.
+            </h2>
+            <p class="mt-4 text-gray-400 text-lg max-w-md">
+                Fast, reliable, and completely customizable Point of Sale system built for modern merchants.
+            </p>
+        </div>
+
+        <div class="relative z-10">
+            <p class="text-sm font-medium text-gray-500">© 2026 MiniPOS Inc.</p>
+        </div>
+    </div>
+
+    <!-- Right: Form -->
+    <div class="flex-1 flex items-center justify-center p-8 bg-content relative">
+        <div class="w-full max-w-md">
+
+            <!-- Mobile branding -->
+            <div class="lg:hidden flex justify-center mb-8">
+                <div class="w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="text-center mb-10">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome Back</h2>
+                <p class="text-sm text-gray-500 mt-2">Sign in to your account</p>
+            </div>
+
+            <form class="space-y-5" @onsubmit="HandleLogin">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+                        @errorMessage
+                    </div>
+                }
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Email / Username</label>
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                        </svg>
+                        <input type="text" @bind-value="loginRequest.Username" class="form-input pl-10 py-2.5 text-base" placeholder="Admin username" required />
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Password</label>
+                        <a href="#" class="text-xs font-semibold text-accent hover:underline">Forgot password?</a>
+                    </div>
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <input type="password" @bind-value="loginRequest.Password" class="form-input pl-10 py-2.5 text-base" placeholder="••••••••" required />
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" disabled="@isLoading" class="w-full bg-accent hover:bg-accent-hover text-white font-semibold py-2.5 rounded-lg shadow-md transition-all flex items-center justify-center">
+                        @if (isLoading)
+                        {
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Sign In</span>
+                        }
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-8 text-center text-sm text-gray-500">
+                Don't have an account? <a href="#" class="font-semibold text-accent hover:underline">Register your business</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = default!;
+    [Inject] POS.Frontend.Services.Auth.IAuthService AuthService { get; set; } = default!;
+
+    private LoginRequest loginRequest = new();
+    private bool isLoading;
+    private string? errorMessage;
+
+    async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(loginRequest);
+            if (result.IsSuccess)
+            {
+                Nav.NavigateTo("");
+            }
+            else
+            {
+                errorMessage = result.Error ?? "Login failed. Please check your credentials.";
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "An unexpected error occurred.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
