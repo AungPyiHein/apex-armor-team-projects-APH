@@ -1,0 +1,113 @@
+@using POS.Shared.Models
+
+<div class="flex items-center justify-between px-4 py-3 sm:px-6">
+    <div class="flex flex-1 justify-between sm:hidden">
+        <button @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" 
+                disabled="@(CurrentPage <= 1)"
+                class="relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors">
+            Previous
+        </button>
+        <button @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" 
+                disabled="@(CurrentPage >= TotalPages)"
+                class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-surface px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors">
+            Next
+        </button>
+    </div>
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+            <p class="text-sm text-gray-700 dark:text-gray-400">
+                @if (TotalRecords > 0)
+                {
+                    <span>Showing</span>
+                    <span class="font-medium text-accent">@(((CurrentPage - 1) * PageSize) + 1)</span>
+                    <span>to</span>
+                    <span class="font-medium text-accent">@(Math.Min(CurrentPage * PageSize, TotalRecords))</span>
+                    <span>of</span>
+                    <span class="font-medium text-accent">@TotalRecords</span>
+                    <span>results</span>
+                }
+                else
+                {
+                    <span>No results found</span>
+                }
+            </p>
+        </div>
+        <div>
+            <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm gap-1" aria-label="Pagination">
+                <button @onclick="() => ChangePage(CurrentPage - 1)" 
+                        disabled="@(CurrentPage <= 1)"
+                        class="relative inline-flex items-center rounded-lg px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30 transition-all duration-200">
+                    <span class="sr-only">Previous</span>
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01.02 1.06L8.832 10l3.978 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                
+                @foreach (var pageNumber in GetPageNumbers())
+                {
+                    if (pageNumber == -1)
+                    {
+                        <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-400">...</span>
+                    }
+                    else
+                    {
+                        var pNum = pageNumber;
+                        <button @onclick="() => ChangePage(pNum)"
+                                aria-current="@(CurrentPage == pNum ? "page" : null)"
+                                class="relative inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold @(CurrentPage == pNum ? "bg-accent text-white shadow-halo-sm scale-110 z-10" : "text-gray-900 dark:text-gray-300 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800") transition-all duration-200">
+                            @pNum
+                        </button>
+                    }
+                }
+
+                <button @onclick="() => ChangePage(CurrentPage + 1)" 
+                        disabled="@(CurrentPage >= TotalPages)"
+                        class="relative inline-flex items-center rounded-lg px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-30 transition-all duration-200">
+                    <span class="sr-only">Next</span>
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.19 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </nav>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int CurrentPage { get; set; }
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public int TotalRecords { get; set; }
+    [Parameter] public int PageSize { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private async Task ChangePage(int newPage)
+    {
+        if (newPage >= 1 && newPage <= TotalPages && newPage != CurrentPage)
+        {
+            await OnPageChanged.InvokeAsync(newPage);
+        }
+    }
+
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        if (TotalPages <= 7)
+        {
+            for (int i = 1; i <= TotalPages; i++) pages.Add(i);
+        }
+        else
+        {
+            pages.Add(1);
+            if (CurrentPage > 3) pages.Add(-1); // Ellipsis
+
+            var start = Math.Max(2, CurrentPage - 1);
+            var end = Math.Min(TotalPages - 1, CurrentPage + 1);
+
+            for (int i = start; i <= end; i++) pages.Add(i);
+
+            if (CurrentPage < TotalPages - 2) pages.Add(-1); // Ellipsis
+            pages.Add(TotalPages);
+        }
+        return pages;
+    }
+}

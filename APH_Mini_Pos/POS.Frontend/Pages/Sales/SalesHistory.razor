@@ -1,0 +1,214 @@
+@page "/sales"
+@layout MainLayout
+@using POS.Frontend.Services.Sales
+@using POS.Frontend.Models.Sales
+@using POS.Shared.Models
+@inject ISaleService SaleService
+
+<div class="space-y-5">
+
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Sales History</h2>
+            <p class="page-subtitle">All recorded transactions</p>
+        </div>
+        <a href="sales/terminal" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            New Sale
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex flex-wrap gap-3 items-center">
+                <div class="relative flex-1 max-w-xs">
+                    <input type="text" 
+                           placeholder="Search invoice or customer…" 
+                           class="form-input w-full" 
+                           @bind-value="_searchTerm"
+                           @bind-value:event="oninput"
+                           @onkeyup="HandleSearch" />
+                    @if (_isSearching)
+                    {
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                        </div>
+                    }
+                </div>
+                <input type="date" class="form-input w-40" @bind="_startDate" />
+                <input type="date" class="form-input w-40" @bind="_endDate" />
+                <button class="btn-primary" @onclick="ApplyFilters">Filter</button>
+                <button class="btn-secondary" @onclick="ClearFilters">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Branch</th>
+                        <th>Items</th>
+                        <th>Date & Time</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="relative">
+                    @if (_isLoading && !_isSearching)
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-8">
+                                <div class="flex flex-col items-center justify-center text-muted">
+                                    <svg class="animate-spin h-8 w-8 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <p>Loading sales history...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-red-500">
+                                <p>@_errorMessage</p>
+                                <button class="btn-secondary mt-4" @onclick="() => LoadSales()">Try Again</button>
+                            </td>
+                        </tr>
+                    }
+                    else if (!Sales.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-muted">
+                                <p>No transactions found.</p>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var s in Sales)
+                        {
+                            <tr>
+                                <td><span class="font-medium text-accent" title="@s.Id">#@s.Id.ToString().Substring(0, 8)</span></td>
+                                <td>@s.CustomerName</td>
+                                <td><span class="badge badge-info">@s.BranchName</span></td>
+                                <td>@s.Items.Sum(i => i.Quantity)</td>
+                                <td class="text-muted text-xs">@s.OrderDate.ToString("dd MMM yyyy, HH:mm")</td>
+                                <td class="font-semibold">@s.TotalAmount.ToString("N0") MMK</td>
+                                <td><span class="badge badge-success">@s.Status</span></td>
+                                <td>
+                                    <a href="sales/@s.Id" class="btn-ghost py-1 px-2 text-xs">View</a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (!_isLoading && _totalRecords > 0)
+        {
+            <div class="border-t border-gray-100 dark:border-gray-800/50">
+                <Pagination CurrentPage="_currentPage"
+                            TotalPages="_totalPages"
+                            TotalRecords="_totalRecords"
+                            PageSize="_pageSize"
+                            OnPageChanged="HandlePageChanged" />
+            </div>
+        }
+    </div>
+
+@code {
+    private List<OrderResponseDto> Sales = new();
+    private bool _isLoading = true;
+
+    // Pagination
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private int _totalRecords = 0;
+    private int _pageSize = 10;
+    private string? _errorMessage;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string _searchTerm = "";
+    private bool _isSearching = false;
+    private CancellationTokenSource? _searchCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSales();
+    }
+
+    private async Task HandlePageChanged(int newPage)
+    {
+        _currentPage = newPage;
+        await LoadSales();
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+            _currentPage = 1;
+            await LoadSales(isSearching: true);
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellation
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        _currentPage = 1;
+        await LoadSales();
+    }
+
+    private async Task ClearFilters()
+    {
+        _searchTerm = "";
+        _startDate = null;
+        _endDate = null;
+        _currentPage = 1;
+        await LoadSales();
+    }
+
+    private async Task LoadSales(bool isSearching = false)
+    {
+        if (!isSearching) _isLoading = true;
+        _isSearching = isSearching;
+        _errorMessage = null;
+
+        var filter = new PaginationFilter
+        {
+            PageNumber = _currentPage,
+            PageSize = _pageSize,
+            SearchTerm = _searchTerm,
+            StartDate = _startDate,
+            EndDate = _endDate
+        };
+        var response = await SaleService.GetAllOrdersAsync(filter);
+        if (response?.Data != null)
+        {
+            Sales = response.Data.Data.ToList();
+            _totalPages = response.Data.TotalPages;
+            _totalRecords = response.Data.TotalRecords;
+        }
+        else
+        {
+            _errorMessage = response?.Message ?? "Unknown error occurred";
+        }
+        _isLoading = false;
+    }
+}

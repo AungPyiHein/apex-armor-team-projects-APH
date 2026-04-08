@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniPOS</title>
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="POS.Frontend.styles.css" rel="stylesheet" />
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+
+<body class="h-full">
+    <div id="app" class="h-full">
+        <div class="flex items-center justify-center h-screen bg-content">
+            <div class="flex flex-col items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-accent animate-pulse"></div>
+                <p class="text-sm text-muted font-medium">Loading MiniPOS…</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm px-5 py-3 rounded-xl shadow-lg hidden">
+        An unhandled error has occurred.
+        <a href="." class="underline ml-2">Reload</a>
+        <span class="dismiss ml-3 cursor-pointer">✕</span>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

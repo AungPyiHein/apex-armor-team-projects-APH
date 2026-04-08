@@ -1,0 +1,819 @@
+@page "/products"
+@layout MainLayout
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject IMerchantService MerchantService
+@inject POS.Frontend.Services.Inventory.IInventoryService InventoryService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@using POS.Frontend.Models
+@using POS.Frontend.Models.Merchants
+@using POS.Frontend.Models.Categories
+@using POS.Frontend.Models.Products
+@using POS.Frontend.Models.Inventory
+@using POS.Shared.Models
+
+<div class="space-y-5 h-full flex flex-col relative overflow-hidden">
+
+    <div class="page-header shrink-0">
+        <div>
+            <h2 class="page-title">Products & Inventory</h2>
+            <p class="page-subtitle">Manage your product catalog and dynamic stock levels</p>
+        </div>
+        <button class="btn-primary" @onclick="OpenAddModal">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Add Product
+        </button>
+    </div>
+
+    <div class="card flex-1 flex flex-col min-h-0">
+        <div class="card-header shrink-0">
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between w-full">
+                <!-- Filters -->
+                <div class="flex gap-3 flex-wrap items-center">
+                    <div class="relative">
+                        <input type="text" placeholder="Search products…" class="form-input max-w-xs pl-9" 
+                               @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        @if (isSearching)
+                        {
+                            <div class="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                        }
+                    </div>
+                    <select class="form-input w-40" value="@SelectedCategoryIdString" @onchange="HandleCategoryChange">
+                        <option value="">All Categories</option>
+                        @foreach (var cat in CategoryList)
+                        {
+                            <option value="@cat.Id.ToString()">@cat.Name</option>
+                        }
+                    </select>
+                </div>
+                
+                <!-- View Toggle -->
+                <div class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
+                    <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(!isGridView ? "bg-white dark:bg-surface text-accent shadow-sm" : "text-gray-500 hover:text-gray-700")"
+                            @onclick="() => isGridView = false">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        List
+                    </button>
+                    <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(isGridView ? "bg-white dark:bg-surface text-accent shadow-sm" : "text-gray-500 hover:text-gray-700")"
+                            @onclick="() => isGridView = true">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                        Grid
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            @if (isLoading && !isSearching)
+            {
+                <div class="flex justify-center items-center h-40">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+                </div>
+            }
+            else if (!ProductList.Any())
+            {
+                <div class="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <p>No products found.</p>
+                </div>
+            }
+            else
+            {
+                @if (isGridView)
+                {
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        @foreach (var p in ProductList)
+                        {
+                            <div class="group bg-white dark:bg-surface border border-gray-100 dark:border-gray-800 rounded-2xl p-4 hover:shadow-xl hover:border-accent/20 transition-all cursor-pointer transform hover:-translate-y-1"
+                                 @onclick="() => OpenProfileDrawer(p)">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-2xl group-hover:bg-accent group-hover:text-white transition-colors">
+                                        @CategoryIconHelper.GetIcon(p.CategoryName)
+                                    </div>
+                                    <span class="badge badge-info group-hover:bg-blue-100 transition-colors">@p.CategoryName</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1 truncate">@p.Name</h4>
+                                    <p class="text-sm text-gray-400 mb-3 truncate">@p.SKU</p>
+                                    <p class="font-semibold text-accent text-lg">@p.Price.ToString("N0") <span class="text-sm text-gray-500 font-normal">MMK</span></p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="border border-gray-100 rounded-xl overflow-hidden">
+                        <table class="data-table w-full mb-0 border-0">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>SKU</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in ProductList)
+                                {
+                                    <tr class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" @onclick="() => OpenProfileDrawer(p)">
+                                        <td>
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-xl">
+                                                    @CategoryIconHelper.GetIcon(p.CategoryName)
+                                                </div>
+                                                <span class="font-medium text-gray-900 dark:text-gray-100">@p.Name</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge badge-info">@p.CategoryName</span></td>
+                                        <td class="text-gray-500 text-sm">@p.SKU</td>
+                                        <td class="font-semibold text-gray-900 dark:text-gray-100">@p.Price.ToString("N0") MMK</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+        @if (!isLoading && totalRecords > 0)
+        {
+            <div class="card-footer shrink-0">
+                <Pagination CurrentPage="currentPage"
+                            TotalPages="totalPages"
+                            TotalRecords="totalRecords"
+                            PageSize="pageSize"
+                            OnPageChanged="HandlePageChanged" />
+            </div>
+        }
+    </div>
+
+    <!-- Product Profile Drawer -->
+    @if (selectedProduct != null)
+    {
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity animate-fade-in" @onclick="CloseProfileDrawer"></div>
+        
+        <!-- Drawer -->
+        <div class="fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-surface shadow-[0_0_40px_rgba(0,0,0,0.1)] z-50 transform transition-transform duration-300 translate-x-0 flex flex-col" style="animation: slideInRight 0.3s forwards;">
+            <!-- Header -->
+            <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-surface/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center text-2xl">
+                        @CategoryIconHelper.GetIcon(selectedProduct.CategoryName)
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">@selectedProduct.Name</h3>
+                        <span class="badge badge-info mt-1">@selectedProduct.CategoryName</span>
+                    </div>
+                </div>
+                <button @onclick="CloseProfileDrawer" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
+                <!-- Info Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Selling Price</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white">@selectedProduct.Price.ToString("N0") <span class="text-base text-gray-500 font-normal">MMK</span></p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">SKU</p>
+                        <p class="text-xl font-medium text-gray-800 dark:text-gray-200 mt-1 truncate">@(!string.IsNullOrEmpty(selectedProduct.SKU) ? selectedProduct.SKU : "N/A")</p>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedProduct.Barcode))
+                {
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Barcode</p>
+                        <p class="text-sm font-mono text-gray-700 dark:text-gray-300">@selectedProduct.Barcode</p>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(selectedProduct.Description))
+                {
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Description</h4>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">@selectedProduct.Description</p>
+                    </div>
+                }
+
+                <!-- Inventory Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            Branch Stock Levels
+                        </h4>
+                    </div>
+
+                    @if (isLoadingInventory)
+                    {
+                        <div class="flex justify-center py-8">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+                        </div>
+                    }
+                    else if (selectedProductInventory == null || !selectedProductInventory.Any())
+                    {
+                        <div class="text-center py-8 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
+                            <p class="text-gray-500 text-sm">No inventory records found across branches.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="space-y-3">
+                            @foreach (var inv in selectedProductInventory)
+                            {
+                                <div class="flex items-center justify-between p-4 bg-white dark:bg-surface border border-gray-100 dark:border-gray-800 rounded-xl shadow-sm hover:border-gray-200 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-gray-900 dark:text-gray-100 text-sm">@inv.BranchName</p>
+                                            <p class="text-xs text-gray-500 mt-0.5">
+                                                Stock: 
+                                                <span class="font-bold @(inv.StockQuantity <= 5 ? "text-red-500" : "text-green-600")">@inv.StockQuantity</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    @if (CanAdjustBranch(inv.BranchId))
+                                    {
+                                        <button class="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200 transition-colors" 
+                                                @onclick="() => OpenAdjustModal(inv)">
+                                            Adjust
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="px-3 py-1.5 text-gray-400 text-xs font-medium italic">View only</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-surface/50 grid grid-cols-2 gap-3 mt-auto">
+                <button class="btn-secondary w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-700 hover:border-red-200 hover:bg-red-50" @onclick="() => ShowDeleteConfirm(selectedProduct.Id, selectedProduct.Name)">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Delete Product
+                </button>
+                <button class="btn-primary w-full flex items-center justify-center gap-2" @onclick="() => OpenEditModal(selectedProduct)">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Edit Details
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- Add/Edit Modal (Standard) -->
+    @if (showModal)
+    {
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-surface rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in relative z-[61]">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200">@(isEditMode ? "Edit Product Settings" : "Add New Product")</h3>
+                    <button @onclick="CloseModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-400">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Product Name</label>
+                        <input type="text" @bind="formModel.Name" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors" placeholder="e.g. Espresso" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Price (MMK)</label>
+                            <input type="number" step="0.01" @bind="formModel.Price" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors" placeholder="0.00" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">SKU</label>
+                            <input type="text" @bind="formModel.SKU" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors" placeholder="SKU-001" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-5">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Barcode</label>
+                            <input type="text" @bind="formModel.Barcode" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors" placeholder="Barcode" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
+                            <textarea @bind="formModel.Description" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors" rows="2" placeholder="Product details..."></textarea>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
+                        <select @bind="formModel.CategoryIdString" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors">
+                            <option value="">Select Category</option>
+                            @foreach (var cat in CategoryList)
+                            {
+                                <option value="@cat.Id.ToString()">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                    @if (!isEditMode && MerchantList.Count > 1)
+                    {
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Initial Merchant</label>
+                            <select @bind="formModel.MerchantIdString" class="form-input bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800 transition-colors">
+                                @foreach (var m in MerchantList)
+                                {
+                                    <option value="@m.Id.ToString()">@m.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+                <div class="px-6 py-4 bg-gray-50 dark:bg-surface border-t border-gray-100 flex justify-end gap-3">
+                    <button @onclick="CloseModal" class="btn-ghost">Cancel</button>
+                    <button @onclick="SaveProduct" class="btn-primary shadow-md hover:shadow-lg transition-all" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <svg class="animate-spin h-4 w-4 mr-2 inline-block" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        }
+                        @(isEditMode ? "Save Changes" : "Create Product")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Adjust Stock Modal -->
+    @if (showAdjustModal && pendingAdjustment != null)
+    {
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in">
+            <div class="bg-white dark:bg-surface rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Adjust Stock</h3>
+                    <button @onclick="CloseAdjustModal" class="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="bg-blue-50 text-blue-800 p-3 rounded-xl border border-blue-100 text-sm">
+                        Adjusting inventory for <span class="font-bold">@selectedProduct?.Name</span> at <span class="font-bold">@pendingAdjustmentBranchName</span>.
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Current Stock</label>
+                        <div class="text-2xl font-bold text-gray-900">@currentStockDisplay</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Quantity Change (+ or -)</label>
+                        <input type="number" @bind="pendingAdjustment.QuantityChange" class="form-input text-lg font-bold w-full bg-gray-50 focus:bg-white dark:bg-gray-800/50 dark:focus:bg-gray-800" placeholder="e.g. 5 or -2" />
+                        <p class="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Positive to add stock, negative to reduce
+                        </p>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-3">
+                    <button @onclick="CloseAdjustModal" class="btn-ghost">Cancel</button>
+                    <button @onclick="SaveStockAdjustment" class="btn-primary" disabled="@isSavingStock">
+                        @if (isSavingStock)
+                        {
+                            <svg class="animate-spin h-4 w-4 mr-2 inline-block" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle></svg>
+                        }
+                        Confirm Adjustment
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showDeleteConfirmModal)
+{
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-surface rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </div>
+                <h3 class="text-base font-bold text-red-700 dark:text-red-400">Delete Product</h3>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    Are you sure you want to delete <span class="font-semibold">@_deleteConfirmName</span>? This will remove it from all inventory records.
+                </p>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 dark:bg-surface border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
+                <button @onclick="CloseDeleteConfirm" class="btn-ghost">Cancel</button>
+                <button @onclick="ConfirmDeleteProduct" class="btn-danger flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Yes, Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    @@keyframes slideInRight {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? CategoryIdQuery { get; set; }
+
+    private List<ProductsResponseDto> ProductList = new();
+    private List<CategoryResponseDto> CategoryList = new();
+    private List<MerchantResponseDto> MerchantList = new();
+    private bool isLoading = true;
+    
+    // View Toggles
+    private bool isGridView = true;
+    private ProductsResponseDto? selectedProduct = null;
+    
+    // Inventory Profile
+    private List<InventoryResponseDto> selectedProductInventory = new();
+    private bool isLoadingInventory = false;
+    
+    // Modals
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    
+    private bool showAdjustModal = false;
+    private bool showDeleteConfirmModal = false;
+    private Guid _deleteConfirmId;
+    private string _deleteConfirmName = "";
+    private UpdateStockRequest? pendingAdjustment = null;
+    private string pendingAdjustmentBranchName = "";
+    private int currentStockDisplay = 0;
+    private bool isSavingStock = false;
+
+    private string searchTerm = string.Empty;
+    private bool isSearching = false;
+    private CancellationTokenSource? _searchCts;
+    private Guid? selectedCategoryId;
+    private ProductFormModel formModel = new();
+
+    // Auth state
+    private string userRole = "";
+    private Guid? userBranchId;
+
+    // Pagination
+    private int currentPage = 1;
+    private int totalPages = 1;
+    private int totalRecords = 0;
+    private int pageSize = 12; // increased for grid nicely dividing by 2,3,4
+
+    private class ProductFormModel
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Barcode { get; set; }
+        public decimal Price { get; set; }
+        public string SKU { get; set; } = string.Empty;
+        public Guid CategoryId { get; set; }
+        public Guid MerchantId { get; set; }
+
+        public string CategoryIdString
+        {
+            get => CategoryId == Guid.Empty ? "" : CategoryId.ToString();
+            set => CategoryId = Guid.TryParse(value, out var guid) ? guid : Guid.Empty;
+        }
+
+        public string MerchantIdString
+        {
+            get => MerchantId == Guid.Empty ? "" : MerchantId.ToString();
+            set => MerchantId = Guid.TryParse(value, out var guid) ? guid : Guid.Empty;
+        }
+    }
+
+    private string SelectedCategoryIdString => selectedCategoryId?.ToString() ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get user role and branch from auth claims
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        userRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                   ?? user.FindFirst("role")?.Value ?? "";
+        var branchClaim = user.FindFirst("BranchId")?.Value ?? user.FindFirst("branchId")?.Value;
+        if (Guid.TryParse(branchClaim, out var bid))
+            userBranchId = bid;
+
+        if (CategoryIdQuery.HasValue)
+        {
+            selectedCategoryId = CategoryIdQuery.Value;
+        }
+        await Task.WhenAll(LoadData(), LoadCategories(), LoadMerchants());
+    }
+
+    private async Task HandleCategoryChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (Guid.TryParse(value, out var guid))
+            selectedCategoryId = guid;
+        else
+            selectedCategoryId = null;
+        
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task LoadMerchants()
+    {
+        var response = await MerchantService.GetAllMerchantsAsync(new PaginationFilter { PageSize = 100 });
+        if (response?.Data?.Data != null)
+        {
+            MerchantList = response.Data.Data.ToList();
+        }
+    }
+
+    private async Task LoadCategories()
+    {
+        var response = await CategoryService.GetCategoriesAsync(new POS.Shared.Models.PaginationFilter { PageSize = 100 });
+        if (response?.Data?.Data != null)
+        {
+            CategoryList = response.Data.Data.ToList();
+        }
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+            currentPage = 1;
+            await LoadData(isSearching: true);
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellation
+        }
+    }
+
+    private async Task HandlePageChanged(int newPage)
+    {
+        currentPage = newPage;
+        await LoadData();
+    }
+
+    private async Task LoadData(bool isSearching = false)
+    {
+        if (!isSearching) isLoading = true;
+        this.isSearching = isSearching;
+        try 
+        {
+            var filter = new POS.Shared.Models.PaginationFilter() 
+            { 
+                PageNumber = currentPage, 
+                PageSize = pageSize,
+                SearchTerm = searchTerm,
+                CategoryId = selectedCategoryId
+            };
+            var response = await ProductService.GetProductsAsync(filter);
+            if (response?.Data != null)
+            {
+                ProductList = response.Data.Data.ToList();
+                totalPages = response.Data.TotalPages;
+                totalRecords = response.Data.TotalRecords;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+            ProductList = new();
+        }
+        finally
+        {
+            isLoading = false;
+            isSearching = false;
+        }
+    }
+
+    // Profile Drawer Logic
+    private async Task OpenProfileDrawer(ProductsResponseDto product)
+    {
+        selectedProduct = product;
+        isLoadingInventory = true;
+        selectedProductInventory = new();
+        
+        try
+        {
+            var response = await InventoryService.GetProductInventoryAsync(product.Id);
+            if (response.IsSuccess && response.Data != null)
+            {
+                selectedProductInventory = response.Data.OrderBy(i => i.BranchName).ToList();
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error loading product inventory: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingInventory = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseProfileDrawer()
+    {
+        selectedProduct = null;
+    }
+
+    // Adjust Stock Logic
+    private void OpenAdjustModal(InventoryResponseDto inv)
+    {
+        currentStockDisplay = inv.StockQuantity;
+        pendingAdjustmentBranchName = inv.BranchName;
+        pendingAdjustment = new UpdateStockRequest
+        {
+            BranchId = inv.BranchId,
+            ProductId = inv.ProductId,
+            QuantityChange = 0
+        };
+        showAdjustModal = true;
+    }
+
+    private bool CanAdjustBranch(Guid branchId)
+    {
+        // Staff can only adjust their own branch
+        if (userRole == "Staff")
+        {
+            return userBranchId.HasValue && userBranchId.Value == branchId;
+        }
+        // Admin and MerchantAdmin can adjust any branch
+        return true;
+    }
+
+    private void CloseAdjustModal()
+    {
+        showAdjustModal = false;
+        pendingAdjustment = null;
+    }
+
+    private async Task SaveStockAdjustment()
+    {
+        if (pendingAdjustment == null || pendingAdjustment.QuantityChange == 0)
+        {
+            CloseAdjustModal();
+            return;
+        }
+
+        isSavingStock = true;
+        try
+        {
+            var result = await InventoryService.AdjustStockAsync(pendingAdjustment);
+            if (result.IsSuccess && selectedProduct != null)
+            {
+                // Refresh inventory list for this product
+                var response = await InventoryService.GetProductInventoryAsync(selectedProduct.Id);
+                if (response.IsSuccess && response.Data != null)
+                {
+                    selectedProductInventory = response.Data.OrderBy(i => i.BranchName).ToList();
+                }
+            }
+            CloseAdjustModal();
+        }
+        finally
+        {
+            isSavingStock = false;
+        }
+    }
+
+    // Product CRUD Logic
+    private void OpenAddModal()
+    {
+        isEditMode = false;
+        formModel = new ProductFormModel 
+        { 
+            MerchantId = MerchantList.FirstOrDefault()?.Id ?? Guid.Empty,
+            CategoryId = CategoryList.FirstOrDefault()?.Id ?? Guid.Empty
+        };
+        showModal = true;
+    }
+
+    private void OpenEditModal(ProductsResponseDto p)
+    {
+        isEditMode = true;
+        formModel = new ProductFormModel
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Description = p.Description,
+            Barcode = p.Barcode,
+            Price = p.Price,
+            SKU = p.SKU,
+            CategoryId = p.CategoryId,
+            MerchantId = p.MerchantId
+        };
+        showModal = true;
+        // Keep the drawer open behind the modal
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task SaveProduct()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.Name) || formModel.CategoryId == Guid.Empty) return;
+
+        isSaving = true;
+        ApiResponse<bool> result;
+
+        if (isEditMode)
+        {
+            var request = new UpdateProductRequest
+            {
+                Id = formModel.Id,
+                Name = formModel.Name,
+                Description = formModel.Description,
+                Barcode = formModel.Barcode,
+                Price = formModel.Price,
+                SKU = formModel.SKU,
+                CategoryId = formModel.CategoryId
+            };
+            result = await ProductService.UpdateProductAsync(request);
+        }
+        else
+        {
+            var request = new CreateProductRequest
+            {
+                Name = formModel.Name,
+                Description = formModel.Description,
+                Barcode = formModel.Barcode,
+                Price = formModel.Price,
+                SKU = formModel.SKU,
+                CategoryId = formModel.CategoryId,
+                MerchantId = formModel.MerchantId
+            };
+            var createResult = await ProductService.CreateProductAsync(request);
+            result = new ApiResponse<bool> { IsSuccess = createResult.IsSuccess, Message = createResult.Message, Data = createResult.Data != Guid.Empty };
+        }
+
+        if (result.IsSuccess)
+        {
+            showModal = false;
+            // Update selected product in drawer if editing
+            if (isEditMode && selectedProduct != null && selectedProduct.Id == formModel.Id)
+            {
+                selectedProduct.Name = formModel.Name;
+                selectedProduct.Description = formModel.Description;
+                selectedProduct.Barcode = formModel.Barcode;
+                selectedProduct.Price = formModel.Price;
+                selectedProduct.SKU = formModel.SKU;
+                selectedProduct.CategoryId = formModel.CategoryId;
+                selectedProduct.CategoryName = CategoryList.FirstOrDefault(c => c.Id == formModel.CategoryId)?.Name ?? "";
+            }
+            await LoadData();
+        }
+        
+        isSaving = false;
+    }
+
+    private void ShowDeleteConfirm(Guid id, string name)
+    {
+        _deleteConfirmId = id;
+        _deleteConfirmName = name;
+        showDeleteConfirmModal = true;
+    }
+
+    private void CloseDeleteConfirm()
+    {
+        showDeleteConfirmModal = false;
+    }
+
+    private async Task ConfirmDeleteProduct()
+    {
+        showDeleteConfirmModal = false;
+        await DeleteProduct(_deleteConfirmId);
+    }
+
+    private async Task DeleteProduct(Guid id)
+    {
+        var result = await ProductService.DeleteProductAsync(id);
+        if (result.IsSuccess)
+        {
+            if (selectedProduct?.Id == id)
+            {
+                CloseProfileDrawer();
+            }
+            await LoadData();
+        }
+    }
+
+
+}

@@ -1,0 +1,460 @@
+@page "/branches"
+@attribute [Authorize(Roles = "Admin, MerchantAdmin")]
+@layout MainLayout
+@using POS.Frontend.Models.Merchants
+@using Microsoft.AspNetCore.Components.Authorization
+@inject POS.Frontend.Services.Merchants.IBranchService BranchService
+@inject POS.Frontend.Services.Merchants.IMerchantService MerchantService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="space-y-5">
+
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Branches</h2>
+            <p class="page-subtitle">Manage store locations</p>
+        </div>
+        <button class="btn-primary" @onclick="ShowAddModal">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Add Branch
+        </button>
+    </div>
+
+    @if (IsLoading && !IsSearching)
+    {
+        <div class="flex justify-center py-20">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            @ErrorMessage
+        </div>
+    }
+    <div class="card">
+        <div class="card-header shrink-0">
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between w-full">
+                <div class="flex gap-3 flex-wrap items-center">
+                    <div class="relative">
+                        <input type="text" placeholder="Search branches…" class="form-input max-w-xs pl-9" 
+                               @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        @if (IsSearching)
+                        {
+                            <div class="absolute right-3 top-2.5 w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                        }
+                    </div>
+                </div>
+
+                <!-- View Toggle -->
+                <div class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
+                    <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(!isGridView ? "bg-white dark:bg-surface text-accent shadow-sm" : "text-gray-500 hover:text-gray-700")"
+                            @onclick="() => isGridView = false">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        List
+                    </button>
+                    <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(isGridView ? "bg-white dark:bg-surface text-accent shadow-sm" : "text-gray-500 hover:text-gray-700")"
+                            @onclick="() => isGridView = true">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                        Grid
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        @if (!isGridView)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Branch Name</th>
+                        <th>Merchant</th>
+                        <th>Location</th>
+                        <th>Active Users</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!BranchList.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-10 text-muted italic">No branches found</td>
+                        </tr>
+                    }
+                    @foreach (var b in BranchList)
+                    {
+                        <tr>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-accent">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    </div>
+                                    <span class="font-medium text-gray-800 dark:text-gray-200">@b.Name</span>
+                                </div>
+                            </td>
+                             <td>
+                                <div class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                                    @b.MerchantName
+                                </div>
+                            </td>
+                            <td class="text-muted">
+                                @b.Address
+                                @if (!string.IsNullOrEmpty(b.PhoneNumber))
+                                {
+                                    <div class="text-xs italic mt-0.5 opacity-70">@b.PhoneNumber</div>
+                                }
+                            </td>
+                            <td class="text-muted">@b.ActiveUsersCount</td>
+                            <td>
+                                <div class="flex gap-1">
+                                    <button class="btn-ghost py-1 px-2 text-xs" @onclick="() => ShowEditModal(b)">Edit</button>
+                                    <button class="btn-ghost py-1 px-2 text-xs text-red-500" @onclick="() => ShowArchiveConfirm(b.Id, b.Name)">Archive</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                @foreach (var b in BranchList)
+                {
+                    <div class="group bg-white dark:bg-surface border border-gray-100 dark:border-gray-800 rounded-2xl p-4 hover:shadow-xl hover:border-accent/20 transition-all">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-xl text-accent group-hover:bg-accent group-hover:text-white transition-colors">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1 truncate">@b.Name</h4>
+                            <p class="text-sm text-gray-400 mb-1 truncate">@b.Address</p>
+                             @if (!string.IsNullOrEmpty(b.PhoneNumber))
+                            {
+                                <p class="text-xs text-gray-500 mb-2 truncate">📞 @b.PhoneNumber</p>
+                            }
+                            <div class="flex items-center justify-between mt-2">
+                                <p class="text-sm text-muted">Users: <span class="font-medium text-accent">@b.ActiveUsersCount</span></p>
+                                <span class="px-2 py-0.5 bg-accent/5 text-accent text-[10px] font-bold uppercase tracking-wider rounded border border-accent/10">@b.MerchantName</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <button class="btn-secondary flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowEditModal(b)">Edit</button>
+                            <button class="btn-danger flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowArchiveConfirm(b.Id, b.Name)">Archive</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+        
+        @if (!IsLoading && TotalRecords > 0)
+        {
+            <div class="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6">
+                <Pagination CurrentPage="CurrentPage" 
+                            TotalPages="TotalPages" 
+                            TotalRecords="TotalRecords" 
+                            PageSize="PageSize" 
+                            OnPageChanged="HandlePageChanged" />
+            </div>
+        }
+    </div>
+
+</div>
+
+@if (ShowModal)
+{
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">@(IsEditMode ? "Edit Branch" : "Add New Branch")</h3>
+                <button @onclick="CloseModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                @if (!IsEditMode)
+                {
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Merchant</label>
+                        @if (CallerRole == "Admin")
+                        {
+                            <select class="form-input w-full" @bind="CurrentBranch.MerchantId">
+                                <option value="">-- Choose Merchant --</option>
+                                @foreach (var m in MerchantList)
+                                {
+                                    <option value="@m.Id">@m.Name</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            var mName = MerchantList.FirstOrDefault(m => m.Id == CallerMerchantId)?.Name ?? "Unknown Merchant";
+                            <input type="text" class="form-input w-full bg-gray-50 dark:bg-surface text-muted" value="@mName" disabled />
+                        }
+                    </div>
+                }
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch Name</label>
+                    <input type="text" class="form-input w-full" @bind="CurrentBranch.Name" placeholder="Branch Name" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                    <input type="text" class="form-input w-full" @bind="CurrentBranch.Address" placeholder="Physical Address" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
+                    <input type="text" class="form-input w-full" @bind="CurrentBranch.PhoneNumber" placeholder="e.g. +95 9..." />
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 dark:bg-surface flex justify-end gap-3">
+                <button @onclick="CloseModal" class="btn-ghost">Cancel</button>
+                <button @onclick="SaveBranch" class="btn-primary" disabled="@IsSaving">
+                    @if (IsSaving)
+                    {
+                        <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                    }
+                    @(IsEditMode ? "Save Changes" : "Create Branch")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowArchiveConfirmModal)
+{
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[55] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-surface rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/10 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2L19 8" /></svg>
+                </div>
+                <h3 class="text-base font-bold text-orange-700 dark:text-orange-400">Archive Branch</h3>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    Are you sure you want to archive <span class="font-semibold">@ArchiveConfirmName</span>? Staff assigned to this branch will lose access.
+                </p>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 dark:bg-surface border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
+                <button @onclick="CloseArchiveConfirmModal" class="btn-ghost">Cancel</button>
+                <button @onclick="ConfirmArchive" class="btn-danger flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2L19 8" /></svg>
+                    Yes, Archive
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BranchResponseDto> BranchList = new();
+    private List<MerchantResponseDto> MerchantList = new();
+    private CreateBranchRequest CurrentBranch = new();
+    private Guid? EditingId;
+    private bool IsLoading = true;
+    private bool IsSaving = false;
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private bool ShowArchiveConfirmModal = false;
+    private Guid? ArchiveConfirmId;
+    private string ArchiveConfirmName = "";
+    private string ErrorMessage = "";
+    private string searchTerm = string.Empty;
+    private bool IsSearching = false;
+    private bool isGridView = true;
+    private CancellationTokenSource? _searchCts;
+
+    private string CallerRole = "";
+    private Guid? CallerMerchantId;
+
+    // Pagination
+    private int CurrentPage = 1;
+    private int TotalPages = 1;
+    private int TotalRecords = 0;
+    private int PageSize = 10;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        CallerRole = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                     ?? user.FindFirst("role")?.Value
+                     ?? "";
+
+        var merchantClaim = user.FindFirst("MerchantId")?.Value ?? user.FindFirst("merchantId")?.Value;
+        if (Guid.TryParse(merchantClaim, out var mId)) CallerMerchantId = mId;
+
+        await LoadBranches();
+    }
+
+    private async Task HandlePageChanged(int newPage)
+    {
+        CurrentPage = newPage;
+        await LoadBranches();
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+            CurrentPage = 1;
+            await LoadBranches(isSearching: true);
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellation
+        }
+    }
+
+    private async Task LoadBranches(bool isSearching = false)
+    {
+        if (!isSearching) IsLoading = true;
+        IsSearching = isSearching;
+        ErrorMessage = "";
+        try
+        {
+            var filter = new POS.Shared.Models.PaginationFilter 
+            { 
+                PageNumber = CurrentPage, 
+                PageSize = PageSize,
+                SearchTerm = searchTerm
+            };
+            var response = await BranchService.GetAllBranchesAsync(filter);
+            if (response.IsSuccess && response.Data != null)
+            {
+                BranchList = response.Data.Data.ToList();
+                TotalPages = response.Data.TotalPages;
+                TotalRecords = response.Data.TotalRecords;
+            }
+            else
+            {
+                ErrorMessage = response.Message;
+            }
+
+            // Also load merchants for the add modal
+            var merchantsResponse = await MerchantService.GetAllMerchantsAsync(new POS.Shared.Models.PaginationFilter { PageSize = 100 });
+            if (merchantsResponse.IsSuccess && merchantsResponse.Data != null)
+            {
+                MerchantList = merchantsResponse.Data.Data.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "An unexpected error occurred: " + ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+            IsSearching = false;
+        }
+    }
+
+    private void ShowAddModal()
+    {
+        IsEditMode = false;
+        CurrentBranch = new CreateBranchRequest();
+        if (CallerRole == "MerchantAdmin" && CallerMerchantId.HasValue)
+        {
+            CurrentBranch.MerchantId = CallerMerchantId.Value;
+        }
+        ShowModal = true;
+    }
+
+    private void ShowEditModal(BranchResponseDto branch)
+    {
+        IsEditMode = true;
+        EditingId = branch.Id;
+        CurrentBranch = new CreateBranchRequest
+        {
+            Name = branch.Name,
+            Address = branch.Address ?? "",
+            PhoneNumber = branch.PhoneNumber,
+            MerchantId = Guid.Empty // MerchantId is not editable in this simple view
+        };
+        ShowModal = true;
+    }
+
+    private void CloseModal()
+    {
+        ShowModal = false;
+    }
+
+    private async Task SaveBranch()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentBranch.Name)) return;
+        if (!IsEditMode && CurrentBranch.MerchantId == Guid.Empty) return;
+
+        IsSaving = true;
+        try
+        {
+            bool success;
+            if (IsEditMode && EditingId.HasValue)
+            {
+                var request = new UpdateBranchRequest
+                {
+                    Id = EditingId.Value,
+                    Name = CurrentBranch.Name,
+                    Address = CurrentBranch.Address,
+                    PhoneNumber = CurrentBranch.PhoneNumber
+                };
+                var response = await BranchService.UpdateBranchAsync(EditingId.Value, request);
+                success = response.IsSuccess;
+            }
+            else
+            {
+                var response = await BranchService.CreateBranchAsync(CurrentBranch);
+                success = response.IsSuccess;
+            }
+
+            if (success)
+            {
+                ShowModal = false;
+                await LoadBranches();
+            }
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void ShowArchiveConfirm(Guid id, string name)
+    {
+        ArchiveConfirmId = id;
+        ArchiveConfirmName = name;
+        ShowArchiveConfirmModal = true;
+    }
+
+    private void CloseArchiveConfirmModal()
+    {
+        ShowArchiveConfirmModal = false;
+        ArchiveConfirmId = null;
+    }
+
+    private async Task ConfirmArchive()
+    {
+        if (!ArchiveConfirmId.HasValue) return;
+        var id = ArchiveConfirmId.Value;
+        ShowArchiveConfirmModal = false;
+        ArchiveConfirmId = null;
+        await DeleteBranchInternal(id);
+    }
+
+    private async Task DeleteBranchInternal(Guid id)
+    {
+        var response = await BranchService.DeleteBranchAsync(id);
+        if (response.IsSuccess)
+        {
+            await LoadBranches();
+        }
+    }
+}
