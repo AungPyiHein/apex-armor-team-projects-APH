@@ -1,0 +1,350 @@
+@page "/categories/{CategoryId}"
+@inject NotificationService Notification
+
+<PageTitle>Category Details - MiniPOS</PageTitle>
+
+
+<div class="animate-slide-down max-w-4xl mx-auto pb-12">
+    <!-- Header with Back Navigation -->
+    <div class="mb-8 flex justify-between items-center">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Categories</span>
+        </button>
+        <div class="flex items-center gap-2">
+            <button class="btn btn-primary btn-sm rounded-lg flex items-center gap-1.5" @onclick="() => _showEditModal = true">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit
+            </button>
+            <button class="btn btn-outline border-destructive/30 text-destructive btn-sm rounded-lg flex items-center gap-1.5 hover:bg-destructive/5" @onclick="() => _showDeleteModal = true">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+            </button>
+        </div>
+    </div>
+
+    @if (_category == null)
+    {
+        <div class="flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-10 w-10 border-4 border-t-primary border-primary/20"></div>
+            <span class="mt-4 text-sm font-bold text-muted-foreground">Loading category...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Main Stats display & details -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Info column -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
+                <!-- Profile Card -->
+                <div class="pos-card overflow-hidden bg-white/60 shadow-xl border-border/40 p-8 flex flex-col relative">
+                    <div class="absolute -right-10 -top-10 w-40 h-40 @(_bgGlow) rounded-full blur-2xl"></div>
+                    <div class="relative z-10">
+                        <div class="w-14 h-14 rounded-full @(_bgIcon) @(_textColor) flex items-center justify-center mb-4">
+                            <i data-lucide="@(_style.Icon)" class="w-7 h-7"></i>
+                        </div>
+                        <h1 class="text-3xl font-black text-foreground tracking-tight mb-1">@_category.Name</h1>
+                        <p class="text-primary text-xs font-black uppercase tracking-widest mb-4">@_category.Merchant?.Name</p>
+                        <p class="text-muted-foreground text-sm font-medium leading-relaxed">@(_category.Description ?? "No description available for this category.")</p>
+                    </div>
+                </div>
+
+                <!-- Product items under Category -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40">
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                <i data-lucide="package" class="w-4 h-4"></i>
+                            </div>
+                            <h2 class="text-lg font-bold text-foreground">Products in Category</h2>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        @if (_category.Products == null || !_category.Products.Any())
+                        {
+                            <div class="text-center py-6 text-sm text-muted-foreground font-medium italic">No products available.</div>
+                        }
+                        else
+                        {
+                            @foreach (var prod in _category.Products)
+                            {
+                                <div class="bg-muted/20 rounded-xl p-4 border border-border/30 flex justify-between items-center group cursor-pointer hover:bg-white/40 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-white border flex items-center justify-center text-primary font-bold shadow-sm">
+                                            @prod.Name.Substring(0, 1).ToUpper()
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-foreground">@prod.Name</div>
+                                            <div class="text-[10px] text-muted-foreground">ID: @prod.Id.ToString().Substring(0, 8)...</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex">
+                                        <i data-lucide="chevron-right" class="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform"></i>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right side Sidebar specs -->
+            <div class="flex flex-col gap-6">
+                <!-- Metadata Stats -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40 p-6">
+                    <h3 class="text-sm font-black uppercase tracking-wider text-muted-foreground mb-4">Category Metrics</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-muted-foreground">Attached Products</span>
+                            <span class="text-sm font-black font-outfit text-foreground">@_category.Products.Count</span>
+                        </div>
+                        <hr class="border-border/30" />
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-muted-foreground">Created On</span>
+                            <span class="text-sm font-bold font-outfit text-foreground">@_category.CreatedAt.ToString("yy-MM")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Modals --- -->
+
+        <!-- Edit Modal -->
+        @if (_showEditModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-md p-6 animate-scale-up space-y-5">
+                    <div class="flex items-center gap-2 text-primary">
+                        <i data-lucide="pencil" class="w-5 h-5"></i>
+                        <h3 class="text-lg font-bold">Edit Category</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Category Name</label>
+                            <input type="text" @bind="_editName" class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Description</label>
+                            <textarea @bind="_editDescription" rows="3" class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium resize-none"></textarea>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button class="btn btn-ghost rounded-xl px-4 text-sm" @onclick='() => _showEditModal = false' disabled="@_isSubmitting">Cancel</button>
+                        <button class="btn btn-primary rounded-xl px-5 text-sm shadow-primary disabled:opacity-50 flex items-center gap-2" @onclick="HandleEditCategory" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div> }
+                            <span>Save Changes</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Delete Modal -->
+        @if (_showDeleteModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-md p-6 animate-scale-up space-y-5">
+                    <div class="flex items-center gap-2 text-destructive">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <h3 class="text-lg font-bold">Delete Category</h3>
+                    </div>
+                    <p class="text-sm text-muted-foreground">Are you sure you want to delete Category <b>@_category.Name</b>? Doing so will dissociate linked inventory references safely.</p>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button class="btn btn-ghost rounded-xl px-4 text-sm" @onclick='() => _showDeleteModal = false' disabled="@_isSubmitting">Cancel</button>
+                        <button class="btn btn-destructive rounded-xl px-5 text-sm flex items-center gap-2" @onclick="HandleDeleteCategory" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div> }
+                            <span>Delete</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string CategoryId { get; set; } = "";
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private CategoryGetByIdResponse? _category;
+
+    // Styles placeholders
+    private (string Icon, string Color) _style;
+    private string _bgGlow = "";
+    private string _bgIcon = "";
+    private string _textColor = "";
+
+    // Modals controls
+    private bool _showEditModal = false;
+    private bool _showDeleteModal = false;
+
+    private string _editName = "";
+    private string _editDescription = "";
+
+    private bool _isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/categories/{CategoryId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load category details.");
+                return;
+            }
+
+            _category = await response.Content.ReadFromJsonAsync<CategoryGetByIdResponse>();
+            if (_category != null)
+            {
+                _editName = _category.Name;
+                _editDescription = _category.Description ?? "";
+
+                // Styles binding
+                _style = GetCategoryStyle(_category.Name ?? "");
+                _bgGlow = _style.Color == "primary" ? "bg-primary/20" : $"bg-{_style.Color}-500/20";
+                _bgIcon = _style.Color == "primary" ? "bg-primary/10" : $"bg-{_style.Color}-500/10";
+                _textColor = _style.Color == "primary" ? "text-primary" : $"text-{_style.Color}-600";
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Error loading category: {ex.Message}");
+        }
+    }
+
+    private class ProductModel { public string Name { get; set; } = ""; public string Sku { get; set; } = ""; }
+
+    private (string Icon, string Color) GetCategoryStyle(string name)
+    {
+        var lowerName = name.ToLower();
+        
+        // Keyword matching for Icons
+        string icon = lowerName switch
+        {
+            var n when n.Contains("coffee") || n.Contains("espresso") || n.Contains("latte") => "coffee",
+            var n when n.Contains("bakery") || n.Contains("bread") || n.Contains("pastry") || n.Contains("croissant") => "croissant",
+            var n when n.Contains("food") || n.Contains("meal") || n.Contains("dish") || n.Contains("lunch") || n.Contains("dinner") => "utensils",
+            var n when n.Contains("beverage") || n.Contains("drink") || n.Contains("soda") || n.Contains("juice") => "cup-soda",
+            var n when n.Contains("dessert") || n.Contains("sweet") || n.Contains("cake") => "ice-cream",
+            var n when n.Contains("merchandise") || n.Contains("gift") || n.Contains("shop") => "shopping-bag",
+            var n when n.Contains("leaf") || n.Contains("tea") || n.Contains("organic") || n.Contains("vegan") => "leaf",
+            var n when n.Contains("package") || n.Contains("box") || n.Contains("delivery") => "package",
+            var n when n.Contains("tag") || n.Contains("sale") || n.Contains("offer") => "tag",
+            var n when n.Contains("star") || n.Contains("featured") || n.Contains("special") => "star",
+            _ => "folder"
+        };
+
+        // Keyword matching for Colors
+        string color = lowerName switch
+        {
+            var n when n.Contains("coffee") || n.Contains("espresso") => "orange",
+            var n when n.Contains("bakery") || n.Contains("pastry") => "amber",
+            var n when n.Contains("food") || n.Contains("meal") => "rose",
+            var n when n.Contains("beverage") || n.Contains("drink") => "sky",
+            var n when n.Contains("dessert") || n.Contains("sweet") => "pink",
+            var n when n.Contains("leaf") || n.Contains("tea") || n.Contains("organic") => "emerald",
+            var n when n.Contains("merchandise") || n.Contains("shop") => "indigo",
+            var n when n.Contains("special") || n.Contains("star") => "yellow",
+            var n when n.Contains("sale") || n.Contains("tag") => "fuchsia",
+            _ => "primary"
+        };
+
+        // Fallbacks for unknown categories
+        if (icon == "folder")
+        {
+            var icons = new[] { "folder", "bookmark", "box", "archive", "layers" };
+            icon = icons[Math.Abs(name.GetHashCode()) % icons.Length];
+        }
+        
+        if (color == "primary")
+        {
+            var colors = new[] { "primary", "emerald", "orange", "indigo", "rose", "pink", "sky", "violet", "amber", "cyan", "fuchsia", "lime" };
+            color = colors[Math.Abs(name.GetHashCode() + 3) % colors.Length];
+        }
+
+        return (icon, color);
+    }
+
+    private void GoBack() { Navigation.NavigateTo("/categories"); }
+
+    private async Task HandleEditCategory()
+    {
+        if (string.IsNullOrWhiteSpace(_editName)) return;
+        _isSubmitting = true;
+
+        try
+        {
+            var response = await Http.PutAsync($"api/categories/{CategoryId}",
+                JsonContent.Create(new
+                {
+                    MerchantId = _category?.Merchant?.Id ?? Guid.Parse("3798433e-f36b-1410-8548-003fb1df8966"),
+                    Name = _editName,
+                    Description = _editDescription
+                }));
+
+            if (response.IsSuccessStatusCode)
+            {
+                if (_category != null)
+                {
+                    _category.Name = _editName;
+                    _category.Description = _editDescription;
+                }
+                await Notification.ShowSuccess("Category updated successfully!");
+                _showEditModal = false;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Update failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error updating category: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleDeleteCategory()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/categories/{CategoryId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Category deleted successfully.");
+                Navigation.NavigateTo("/categories");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Delete failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error during deletion: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            _showDeleteModal = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) { await JSRuntime.InvokeVoidAsync("initIcons"); }
+    }
+}

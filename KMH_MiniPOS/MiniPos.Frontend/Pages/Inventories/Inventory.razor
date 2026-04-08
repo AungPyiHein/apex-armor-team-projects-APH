@@ -1,0 +1,399 @@
+@page "/inventory"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+
+<PageTitle>Master Inventory - MiniPOS</PageTitle>
+
+<PageHeader Title="Inventory"
+            Subtitle="Monitor and manage stock across all branch locations"
+            SearchPlaceholder="Search inventory..."
+            @bind-SearchTerm="_searchTerm"
+            @bind-ViewMode="_viewMode"
+            OnSearch="LoadData">
+    <Filters>
+        <!-- Branch Selector -->
+        <div class="relative group/branch">
+            <i data-lucide="map-pin"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within/branch:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedBranchId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Branches</option>
+                @foreach (var br in _branches)
+                {
+                    <option value="@br.Id">@br.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform pointer-events-none"></i>
+        </div>
+
+        <!-- Category Selector -->
+        <div class="relative group/category">
+            <i data-lucide="filter"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within/category:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedCategoryId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Categories</option>
+                @foreach (var cat in _categories)
+                {
+                    <option value="@cat.Id">@cat.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform pointer-events-none"></i>
+        </div>
+
+        <!-- Merchant Selector -->
+        <div class="relative group/merchant">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within/merchant:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="LoadFilters"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Merchants</option>
+                @foreach (var mer in _merchants)
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform pointer-events-none"></i>
+        </div>
+    </Filters>
+    <Actions>
+        <button
+            class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+            @onclick="GoToAddInventory">
+            <i data-lucide="plus" class="w-5 h-5 font-black"></i>
+            <span class="font-black uppercase tracking-tight text-sm">Add Stock</span>
+        </button>
+    </Actions>
+</PageHeader>
+
+<div
+    class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-0">
+    @if (_selectedMerchantId == null)
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 text-center">
+            <div class="w-20 h-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+                <i data-lucide="package-search" class="w-10 h-10 text-muted-foreground/30"></i>
+            </div>
+            <h3 class="text-xl font-black text-foreground">Out of sync</h3>
+            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Adjust your search or active merchant filters.</p>
+        </div>
+    }
+    else if (_pagedInventories == null || !_pagedInventories.Data.Any())
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 text-center">
+            <div class="w-20 h-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+                <i data-lucide="package-search" class="w-10 h-10 text-muted-foreground/30"></i>
+            </div>
+            <h3 class="text-xl font-black text-foreground">Out of sync</h3>
+            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Adjust your search or active branch filters.</p>
+        </div>
+    }
+    else if (_isLoading)
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Scanning inventory...</p>
+        </div>
+    }
+    else
+    {
+        @if (_viewMode == "grid")
+        {
+            <div class="p-6 stylish-scrollbar overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                    @foreach (var item in _pagedInventories.Data)
+                    {
+                        var ui = GetInventoryUI(item);
+                        <div
+                            class="pos-card p-0 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer relative rounded-3xl bg-white/40 backdrop-blur-md"
+                            @onclick="() => GoToInventoryDetail(item.Id)">
+
+                            <div
+                                class="h-32 w-full bg-gradient-to-br @ui.Gradient relative overflow-hidden flex items-center justify-center border-b border-border/10">
+                                <div class="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center text-foreground group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 z-10 shadow-sm border border-white/40">
+                                    <i data-lucide="@ui.Icon" class="w-6 h-6 text-white drop-shadow-md"></i>
+                                </div>
+
+                                <div class="absolute top-3 right-3">
+                                    <div
+                                        class="bg-black/20 backdrop-blur-md rounded-lg px-2 py-1 border border-white/10">
+                                        <div
+                                            class="text-[8px] font-black text-white/70 uppercase tracking-widest text-right leading-none">
+                                            Stock
+                                        </div>
+                                        <div
+                                            class="text-[16px] font-black text-white font-outfit leading-none mt-0.5">@item.StockQuantity</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-5 relative z-10">
+                                <div
+                                    class="text-xs font-black text-primary uppercase tracking-widest mb-1">@item.CategoryName</div>
+                                <h3 class="font-black text-[16px] text-foreground line-clamp-1 leading-snug group-hover:text-primary transition-colors font-outfit">@item.Name</h3>
+                                <div class="flex justify-between items-center mt-3">
+                                    <span
+                                        class="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest bg-muted/30 px-2.5 py-1 rounded-lg">@item.Sku</span>
+                                    <div class="text-right">
+                                        <span
+                                            class="text-[18px] font-black font-outfit text-primary tracking-tighter">$@item.Price.ToString("F2")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="flex-1 overflow-auto stylish-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-muted/10 border-b border-border/30 sticky top-0 z-30 backdrop-blur-md">
+                    <tr>
+                        <th class="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            Product
+                        </th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            Category
+                        </th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">
+                            Stock
+                        </th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                            Price
+                        </th>
+                        <th class="pr-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                            Actions
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border/10">
+                    @foreach (var inventory in _pagedInventories.Data)
+                    {
+                        var ui = GetInventoryUI(inventory);
+                        <tr class="group hover:bg-white/40 transition-colors cursor-pointer"
+                            @onclick="() => GoToInventoryDetail(inventory.Id)">
+                            <td class="pl-8 py-4">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-10 h-10 rounded-xl bg-gradient-to-br @ui.Gradient flex items-center justify-center text-white border border-white shadow-sm">
+                                        <i data-lucide="@ui.Icon" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="font-black text-sm text-foreground group-hover:text-primary transition-colors font-outfit">@inventory.Name</h4>
+                                        <p class="text-[11px] text-muted-foreground font-medium">@inventory.Sku</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span
+                                    class="px-3 py-1 bg-muted rounded-full text-[10px] font-black text-muted-foreground uppercase tracking-widest">@inventory.CategoryName</span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span
+                                    class="text-sm font-black font-outfit @(inventory.StockQuantity < 10 ? "text-rose-500" : "text-foreground")">@inventory.StockQuantity</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <span
+                                    class="text-base font-black font-outfit text-primary tracking-tighter">$@inventory.Price.ToString("F2")</span>
+                            </td>
+                            <td class="pr-8 py-4 text-right">
+                                <button
+                                    class="w-9 h-9 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90 ml-auto">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <Pagination CurrentPage="_currentPage"
+                    TotalPages="@(_pagedInventories?.TotalPages ?? 1)"
+                    TotalCount="@(_pagedInventories?.TotalCount ?? 0)"
+                    PageSize="_pageSize"
+                    PageChanged="HandlePageChanged"/>
+    }
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    public class InventoryUI
+    {
+        public string Icon { get; set; } = "package";
+        public string Gradient { get; set; } = "from-slate-400 to-slate-500";
+    }
+
+    private PagedResult<BranchInventoryListResponse>? _pagedInventories;
+    private List<Category> _categories = new();
+    private List<Branch> _branches = new();
+    private List<Merchant> _merchants = new();
+
+    private string _searchTerm = "";
+    private string _viewMode = "grid";
+    private Guid? _selectedBranchId;
+    private Guid? _selectedCategoryId;
+    private Guid? _selectedMerchantId;
+
+    private int _currentPage = 1;
+    private readonly int _pageSize = 12;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMerchants();
+    }
+
+    private async Task LoadMerchants()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/merchants?pageSize=100");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load merchants.");
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+            if (result is { Data: not null })
+            {
+                _merchants = result.Data;
+                _selectedMerchantId = _merchants[0].Id;
+                await LoadFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+    }
+
+    private async Task LoadFilters()
+    {
+        try
+        {
+            var branchUrl = $"api/branches?MerchantId={_selectedMerchantId}&pageSize=100";
+            var branchesResp = await Http.GetFromJsonAsync<PagedResult<Branch>>(branchUrl);
+            _branches = branchesResp?.Data;
+            Console.WriteLine(_branches[0].Id);
+
+            var categoryUrl = $"api/categories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId}";
+            var categoriesResp = await Http.GetFromJsonAsync<PagedResult<Category>>(categoryUrl);
+            _categories = categoriesResp?.Data;
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (_selectedMerchantId == null)
+        {
+            {
+                Clear();
+                return;
+            }
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var url = $"api/inventories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId.Value}";
+
+            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
+            if (_selectedBranchId.HasValue && _selectedBranchId != Guid.Empty) url += $"&branchId={_selectedBranchId.Value}";
+            if (_selectedCategoryId.HasValue) url += $"&categoryId={_selectedCategoryId.Value}";
+
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load inventories.");
+                return;
+            }
+
+            _pagedInventories = await response.Content.ReadFromJsonAsync<PagedResult<BranchInventoryListResponse>>();
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task HandlePageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadData();
+    }
+
+    private InventoryUI GetInventoryUI(BranchInventoryListResponse item)
+    {
+        var icon = item.CategoryName?.ToLower() switch
+        {
+            "electronics" => "cpu",
+            "clothing" => "shirt",
+            "food" => "utensils",
+            _ => "package"
+        };
+
+        var gradient = item.CategoryName?.ToLower() switch
+        {
+            "electronics" => "from-blue-400 to-indigo-600",
+            "clothing" => "from-rose-400 to-purple-600",
+            "food" => "from-emerald-400 to-teal-600",
+            _ => "from-slate-400 to-slate-600"
+        };
+
+        return new InventoryUI { Icon = icon, Gradient = gradient };
+    }
+
+    private void GoToInventoryDetail(Guid id)
+    {
+        Navigation.NavigateTo($"/inventory/{id}");
+    }
+
+    private void GoToAddInventory()
+    {
+        Navigation.NavigateTo("/inventory/add");
+    }
+
+    private void Clear()
+    {
+        _categories = new List<Category>();
+        _branches = new List<Branch>();
+        _selectedBranchId = null;
+        _selectedCategoryId = null;
+        _pagedInventories = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

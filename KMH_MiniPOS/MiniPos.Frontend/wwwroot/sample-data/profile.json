@@ -1,0 +1,15 @@
+{
+  "Id": "00000000-0000-0000-0000-00000000771A",
+  "MerchantId": "22222222-2222-2222-2222-222222222222",
+  "BranchId": null,
+  "UserName": "Alice Smith",
+  "Email": "alice@example.com",
+  "Role": "Merchant",
+  "CreatedAt": "2024-01-15T08:00:00Z",
+  "Merchant": {
+    "Id": "22222222-2222-2222-2222-222222222222",
+    "Name": "Example Merchant",
+    "ContactEmail": "merchant@example.com"
+  },
+  "Branch": null
+}

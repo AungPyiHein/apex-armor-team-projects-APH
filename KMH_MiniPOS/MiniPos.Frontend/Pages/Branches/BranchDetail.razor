@@ -1,0 +1,586 @@
+@page "/branches/{BranchId}"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+
+<PageTitle>Branch Details - MiniPOS</PageTitle>
+
+<div class="animate-slide-down max-w-5xl mx-auto pb-12">
+    <!-- Header with Back Navigation -->
+    <div class="mb-10">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Branches</span>
+        </button>
+    </div>
+
+
+    @if (_branch == null)
+    {
+        <div class="flex flex-col items-center justify-center p-24 relative">
+            <div class="absolute w-24 h-24 bg-primary/20 blur-xl rounded-full animate-ping"></div>
+            <div
+                class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20 relative z-10"></div>
+            <span class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Loading Branch Profile...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Profile Hero Card -->
+        <div class="pos-card p-0 overflow-hidden bg-white/60 shadow-xl border-border/40 mb-8">
+            <div class="relative h-32 bg-gradient-to-br from-emerald-500 via-teal-500 to-green-600 overflow-hidden">
+                <div class="absolute inset-0 bg-white/10 backdrop-blur-3xl"></div>
+                <div class="absolute -top-10 -right-10 w-48 h-48 bg-white/15 rounded-full blur-2xl"></div>
+                <div class="absolute inset-0 opacity-10"
+                     style="background-image: radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px); background-size: 20px 20px;"></div>
+
+                <!-- Role/Status Badge -->
+                <div class="absolute top-4 left-6 z-20">
+                    <span
+                        class="badge badge-success px-3 py-1.5 uppercase tracking-widest text-[10px] shadow-md flex items-center font-black">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse mr-1.5"></span> Active
+                    </span>
+                </div>
+
+                <!-- Edit button quick -->
+                <div class="absolute top-4 right-4 z-20">
+                    <button
+                        class="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:bg-white/40 transition-all font-bold"
+                        @onclick="() => _showEditModal = true">
+                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile Info below banner -->
+            <div class="px-8 pb-8 relative">
+                <!-- Icon Overlap -->
+                <div class="relative -mt-10 mb-4 flex items-end gap-6">
+                    <div class="shrink-0">
+                        <div
+                            class="w-20 h-20 rounded-2xl bg-white shadow-xl flex items-center justify-center text-primary border border-border/40">
+                            <i data-lucide="store" class="w-10 h-10"></i>
+                        </div>
+                    </div>
+                    <div class="pb-1 flex-1 min-w-0">
+                        <h1 class="text-2xl font-black text-foreground tracking-tight truncate">@_branch.Name</h1>
+                        <p class="text-sm text-muted-foreground font-medium flex items-center gap-1.5 mt-0.5">
+                            <i data-lucide="map-pin"
+                               class="w-3.5 h-3.5"></i> @(_branch.Address ?? "Address not provided")
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left column: Lists and Configuration -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
+
+                <!-- Associated Merchant -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-warning/10 text-warning flex items-center justify-center">
+                            <i data-lucide="building" class="w-4 h-4"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-foreground">Ownership Details</h2>
+                    </div>
+                    <div class="bg-muted/20 rounded-xl p-4 border border-border/30 flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-0.5">
+                                Assigned Merchant
+                            </div>
+                            <div
+                                class="text-sm font-bold text-foreground">@(_branch.Merchant?.Name ?? "General Default")</div>
+                            <div class="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <i data-lucide="mail" class="w-3 h-3"></i> @(_branch.Merchant?.ContactEmail ?? "—")
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assigned Staff list -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40">
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                            </div>
+                            <h2 class="text-lg font-bold text-foreground">Assigned Staff</h2>
+                        </div>
+                        <button
+                            class="btn btn-ghost text-primary text-xs font-bold gap-1 flex items-center hover:bg-primary/5"
+                            @onclick="() => _showAssignStaffModal = true">
+                            <i data-lucide="plus" class="w-3 h-3 font-black"></i> Assign Staff
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        @if (_staff == null || !_staff.Any())
+                        {
+                            <div class="text-center py-6 text-sm text-muted-foreground font-medium italic">No staff
+                                assigned to this branch.
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var user in _staff)
+                            {
+                                var badgeClass = user.Role == "Manager" ? "badge-warning" : "badge-success";
+
+                                <div
+                                    class="bg-muted/20 rounded-xl p-4 border border-border/30 flex justify-between items-center group">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/10 to-indigo-100 border flex items-center justify-center text-primary font-bold shadow-sm">
+                                            @user.UserName.Substring(0, 1).ToUpper()
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-foreground">@user.UserName</div>
+                                            <div
+                                                class="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                                <span
+                                                    class="badge @badgeClass scale-90 px-1.5 py-0.5 text-[9px]">@user.Role</span>
+                                                <span>@user.Email</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button class="text-muted-foreground hover:text-destructive p-1 rounded-md"
+                                                @onclick="() => PromptRemoveStaff(user)">
+                                            <i data-lucide="user-minus" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right side: Sidebar metrics / actions -->
+            <div class="flex flex-col gap-6">
+
+                <!-- Metrices -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40">
+                    <div class="flex items-center gap-2 mb-6">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-foreground">Direct Stats</h2>
+                    </div>
+                    <div class="flex flex-col gap-4">
+                        <div
+                            class="flex justify-between items-center p-3 bg-muted/20 rounded-xl border border-border/30">
+                            <div class="flex items-center gap-2.5">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                    <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                                </div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sales
+                                    Today
+                                </div>
+                            </div>
+                            <div class="font-black text-xl font-outfit text-foreground">@_branch.TodayOrderPrice mmk
+                            </div>
+                        </div>
+                        <div
+                            class="flex justify-between items-center p-3 bg-muted/20 rounded-xl border border-border/30">
+                            <div class="flex items-center gap-2.5">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                                </div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Today's
+                                    Sales
+                                </div>
+                            </div>
+                            <div class="font-black text-xl font-outfit text-foreground">@_branch.TodayOrderCount</div>
+                        </div>
+                        <div
+                            class="flex justify-between items-center p-3 bg-muted/20 rounded-xl border border-border/30">
+                            <div class="flex items-center gap-2.5">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                                </div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Opened
+                                    On
+                                </div>
+                            </div>
+                            <div
+                                class="font-bold text-sm font-outfit text-foreground">@_branch.CreatedAt?.ToString("MMM dd, yyyy")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions card -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div
+                            class="w-8 h-8 rounded-lg bg-muted/30 text-muted-foreground flex items-center justify-center">
+                            <i data-lucide="settings" class="w-4 h-4"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-foreground">Branch Controls</h2>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <button
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-semibold text-sm text-left"
+                            @onclick="() => _showEditModal = true">
+                            <i data-lucide="pencil" class="w-4 h-4"></i> Edit Details
+                        </button>
+                        <button
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted/50 transition-colors font-semibold text-sm text-left text-foreground"
+                            @onclick="() => _showAssignStaffModal = true">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Assign Staff
+                        </button>
+                        <hr class="border-border/40 my-1"/>
+                        <button
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-destructive/10 transition-colors font-semibold text-sm text-left text-destructive"
+                            @onclick="() => _showDeleteModal = true">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Delete Location
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- --- Action Modals --- -->
+
+        <!-- Edit Profile Modal -->
+        @if (_showEditModal)
+        {
+            <div
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div
+                    class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-md p-6 animate-scale-up space-y-5">
+                    <div class="flex items-center gap-2 text-primary">
+                        <i data-lucide="pencil" class="w-5 h-5"></i>
+                        <h3 class="text-lg font-bold">Edit Details</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Branch
+                                Name</label>
+                            <input type="text" @bind="_editName"
+                                   class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium"/>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Address</label>
+                            <input type="text" @bind="_editAddress"
+                                   class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium"/>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button class="btn btn-ghost rounded-xl px-5 text-sm" @onclick='() => _showEditModal = false'
+                                disabled="@_isSubmitting">Cancel
+                        </button>
+                        <button
+                            class="btn btn-primary rounded-xl px-6 text-sm shadow-primary disabled:opacity-50 flex items-center gap-2"
+                            @onclick="HandleEditBranch"
+                            disabled="@_isSubmitting"
+                        >
+                            @if (_isSubmitting)
+                            {
+                                <div
+                                    class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div>
+                            }
+                            <span>Save Changes</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Assign Staff Modal -->
+        @if (_showAssignStaffModal)
+        {
+            <div
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div
+                    class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-md p-6 animate-scale-up space-y-5">
+                    <div class="flex items-center gap-2 text-primary">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        <h3 class="text-lg font-bold">Assign Staff Member</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select
+                                User</label>
+                            <select @bind="_selectedStaffId"
+                                    class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium appearance-none cursor-pointer">
+                                <option value="">Choose static staff...</option>
+                                @if (_availableUsers != null)
+                                {
+                                    @foreach (var u in _availableUsers)
+                                    {
+                                        <option value="@u.Id.ToString()">@u.UserName (@u.Role)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button class="btn btn-ghost rounded-xl px-5 text-sm"
+                                @onclick='() => _showAssignStaffModal = false' disabled="@_isSubmitting">Cancel
+                        </button>
+                        <button
+                            class="btn btn-primary rounded-xl px-6 text-sm shadow-primary disabled:opacity-50 flex items-center gap-2"
+                            @onclick="HandleAssignStaff" disabled="@_isSubmitting">
+                            @if (_isSubmitting)
+                            {
+                                <div
+                                    class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div>
+                            }
+                            <span>Assign</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Delete Modal -->
+        @if (_showDeleteModal)
+        {
+            <div
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div
+                    class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-md p-6 animate-scale-up space-y-5">
+                    <div class="flex items-center gap-2 text-destructive">
+                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                        <h3 class="text-lg font-bold">Delete Branch</h3>
+                    </div>
+                    <p class="text-sm text-muted-foreground">Are you sure you want to delete <b>@_branch.Name</b>? This
+                        action will archive this listing structure and is irreversible.</p>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button class="btn btn-ghost rounded-xl px-5 text-sm" @onclick='() => _showDeleteModal = false'
+                                disabled="@_isSubmitting">Cancel
+                        </button>
+                        <button class="btn btn-destructive rounded-xl px-6 text-sm flex items-center gap-2"
+                                @onclick="HandleDeleteBranch" disabled="@_isSubmitting">
+                            @if (_isSubmitting)
+                            {
+                                <div
+                                    class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div>
+                            }
+                            <span>Delete</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string BranchId { get; set; } = "";
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private Branch? _branch;
+    private List<User> _staff = new();
+    private List<User>? _availableUsers;
+
+    // Modal controls
+    private bool _showEditModal = false;
+    private bool _showAssignStaffModal = false;
+    private bool _showDeleteModal = false;
+
+    // Field bindings for edit
+    private string _editName = "";
+    private string _editAddress = "";
+
+    // Field bindings for assign
+    private string _selectedStaffId = "";
+
+    private bool _isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadBranchData();
+            await LoadStaffData();
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Error during initialization: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBranchData()
+    {
+        var response = await Http.GetAsync($"api/branches/{BranchId}");
+        if (response.IsSuccessStatusCode)
+        {
+            _branch = await response.Content.ReadFromJsonAsync<Branch>();
+            if (_branch != null)
+            {
+                _editName = _branch.Name;
+                _editAddress = _branch.Address ?? "";
+                _branch.Merchant = _branch.Merchant;
+            }
+        }
+        else
+        {
+            await Notification.ShowError("Failed to load branch.");
+        }
+    }
+
+    private async Task LoadStaffData()
+    {
+        if (_branch is {Merchant: not null})
+        {
+        var url = $"/api/users?merchantId={_branch.Merchant.Id}&includeCashiers=true&pageNumber=1&pageSize=10";
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var pagedUsers = await response.Content.ReadFromJsonAsync<PagedResult<User>>();
+                if (pagedUsers != null)
+                {
+                    _availableUsers = pagedUsers.Data;
+                    _staff = _availableUsers.Where(u => u.Branch != null && u.Branch.Id.ToString() == BranchId).ToList();
+                }
+                else
+                {
+                    await Notification.ShowError("Failed to load staff data.");
+                }
+            }
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/branches");
+    }
+
+    private async Task HandleEditBranch()
+    {
+        if (string.IsNullOrWhiteSpace(_editName)) return;
+        _isSubmitting = true;
+
+        try
+        {
+            var request = new BranchUpdateRequest
+            {
+                MerchantId = _branch.Merchant.Id.ToString(),
+                Name = _editName,
+                Address = _editAddress
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/branches/{BranchId}", request);
+            if (response.IsSuccessStatusCode)
+            {
+                _branch.Name = _editName;
+                _branch.Address = _editAddress;
+                await Notification.ShowSuccess("Branch updated successfully!");
+                _showEditModal = false;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Update failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleAssignStaff()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedStaffId)) return;
+        _isSubmitting = true;
+
+        try
+        {
+            var request = new UserAssignBranchRequest { BranchId = Guid.Parse(BranchId) };
+            var response = await Http.PostAsJsonAsync($"api/users/{_selectedStaffId}/reassign-branch", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Staff assigned successfully!");
+                await LoadStaffData(); // Refresh list
+                _showAssignStaffModal = false;
+                _selectedStaffId = "";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Assignment failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+            _ = ReinitIcons();
+        }
+    }
+
+    private async Task HandleDeleteBranch()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/branches/{BranchId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Branch deleted successfully!");
+                Navigation.NavigateTo("/branches");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Delete failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            _showDeleteModal = false;
+        }
+    }
+
+    private void PromptRemoveStaff(User user)
+    {
+        _ = Notification.ShowWarning("Staff removal is not directly supported via this API. Please reassign the user to another branch.");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task ReinitIcons()
+    {
+        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+}

@@ -1,0 +1,86 @@
+<nav class="flex flex-col">
+    <div class="px-3 mb-2 text-xs font-bold text-muted-foreground/70 uppercase tracking-widest">
+        Overview
+    </div>
+    <NavLink class="nav-item-link" href="" Match="NavLinkMatch.All">
+        <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]"></i>
+        <span>Dashboard</span>
+        <span class="ml-auto bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">New</span>
+    </NavLink>
+    
+    <div class="mt-6 px-3 mb-2 text-xs font-bold text-muted-foreground/70 uppercase tracking-widest">
+        Store Operations
+    </div>
+    
+    @* <NavLink class="nav-item-link" href="orders"> *@
+    @*     <i data-lucide="shopping-bag" class="w-[18px] h-[18px]"></i> *@
+    @*     <span>Live Checkout</span> *@
+    @* </NavLink> *@
+    
+    <NavLink class="nav-item-link" href="orders">
+        <i data-lucide="shopping-cart" class="w-[18px] h-[18px]"></i>
+        <span>Point of Sale</span>
+    </NavLink>
+    
+    <NavLink class="nav-item-link" href="sales">
+        <i data-lucide="history" class="w-[18px] h-[18px]"></i>
+        <span>Sales</span>
+    </NavLink>
+    
+    <NavLink class="nav-item-link" href="products">
+        <i data-lucide="package" class="w-[18px] h-[18px]"></i>
+        <span>Products</span>
+    </NavLink>
+    
+    <NavLink class="nav-item-link" href="categories">
+        <i data-lucide="tags" class="w-[18px] h-[18px]"></i>
+        <span>Categories</span>
+    </NavLink>
+
+    <NavLink class="nav-item-link" href="inventory">
+        <i data-lucide="archive" class="w-[18px] h-[18px]"></i>
+        <span>Inventory</span>
+    </NavLink>
+    
+    <div class="mt-6 px-3 mb-2 text-xs font-bold text-muted-foreground/70 uppercase tracking-widest">
+        Business Management
+    </div>
+
+    <NavLink class="nav-item-link" href="merchants">
+        <i data-lucide="building" class="w-[18px] h-[18px]"></i>
+        <span>Merchants</span>
+    </NavLink>
+
+    @* <NavLink class="nav-item-link" href="customers"> *@
+    @*     <i data-lucide="users" class="w-[18px] h-[18px]"></i> *@
+    @*     <span>Customers</span> *@
+    @* </NavLink> *@
+    
+    <NavLink class="nav-item-link" href="branches">
+        <i data-lucide="store" class="w-[18px] h-[18px]"></i>
+        <span>Branches</span>
+    </NavLink>
+
+    <NavLink class="nav-item-link" href="users">
+        <i data-lucide="shield-check" class="w-[18px] h-[18px]"></i>
+        <span>Staff & Roles</span>
+    </NavLink>
+
+    <div class="mt-6 px-3 mb-2 text-xs font-bold text-muted-foreground/70 uppercase tracking-widest">
+        System
+    </div>
+
+    <NavLink class="nav-item-link" href="profile">
+        <i data-lucide="user-circle" class="w-[18px] h-[18px]"></i>
+        <span>My Profile</span>
+    </NavLink>
+
+    @* <NavLink class="nav-item-link" href="settings"> *@
+    @*     <i data-lucide="settings" class="w-[18px] h-[18px]"></i> *@
+    @*     <span>Settings</span> *@
+    @* </NavLink> *@
+</nav>
+
+@code {
+    // Navigation routing logic
+}

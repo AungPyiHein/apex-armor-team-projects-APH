@@ -1,0 +1,73 @@
+@using MiniPos.Frontend.Shared.Services
+@inject NotificationService NotificationService
+@implements IDisposable
+
+@if (NotificationService.Toasts.Any())
+{
+    <div class="toast-container" aria-live="polite" aria-atomic="false">
+        @foreach (var toast in NotificationService.Toasts)
+        {
+            <div class="toast toast-@toast.Type.ToString().ToLower() animate-toast-in" role="alert">
+                <!-- Icon -->
+                <div class="toast-icon-wrap">
+                    @if (toast.Type == ToastType.Success)
+                    {
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                    }
+                    else if (toast.Type == ToastType.Error)
+                    {
+                        <i data-lucide="x-circle" class="w-5 h-5"></i>
+                    }
+                    else if (toast.Type == ToastType.Warning)
+                    {
+                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    }
+                    else
+                    {
+                        <i data-lucide="info" class="w-5 h-5"></i>
+                    }
+                </div>
+
+                <!-- Content -->
+                <div class="toast-body">
+                    <p class="toast-title">
+                        @(toast.Title ?? (toast.Type == ToastType.Success ? "Success" : toast.Type == ToastType.Error ? "Error" : toast.Type == ToastType.Warning ? "Warning" : "Info"))
+                    </p>
+                    <p class="toast-message">@toast.Message</p>
+                </div>
+
+                <!-- Progress bar -->
+                <div class="toast-progress"></div>
+
+                <!-- Close button -->
+                <button class="toast-close" @onclick="() => NotificationService.Dismiss(toast.Id)" title="Dismiss">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        });
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnChange -= HandleChange;
+    }
+}
