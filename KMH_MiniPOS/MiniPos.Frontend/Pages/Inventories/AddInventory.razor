@@ -1,0 +1,312 @@
+@page "/inventory/add"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+
+<PageTitle>Add Stock - MiniPOS</PageTitle>
+
+<div class="animate-slide-down max-w-2xl mx-auto pb-12">
+    <!-- Header with Back Navigation -->
+    <div class="mb-8">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Inventory</span>
+        </button>
+        <h1 class="text-3xl font-black tracking-tight text-foreground">Allocate Stock</h1>
+        <p class="text-muted-foreground mt-1 text-sm">Assign products and initial quantities to specific store
+            branches.</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="pos-card p-8 bg-white/60 shadow-xl border-border/40 relative overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-2xl"></div>
+
+        <EditForm Model="@_inventoryRequest" OnValidSubmit="HandleSubmit" class="space-y-6 relative z-10">
+            <DataAnnotationsValidator/>
+
+            <!-- Floating Alert Box -->
+            @if (!string.IsNullOrEmpty(_alertMessage))
+            {
+                <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-down">
+                    <div class="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md
+                        @(_alertType == "success" ? "bg-emerald-50/90 border-emerald-200 text-emerald-800" : "bg-rose-50/90 border-rose-200 text-rose-800")">
+                        <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+                            @(_alertType == "success" ? "bg-emerald-100" : "bg-rose-100")">
+                            <i data-lucide="@(_alertType == "success" ? "check-circle" : "alert-circle")"
+                               class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-widest opacity-60">@(_alertType == "success" ? "Success" : "Error")</p>
+                            <p class="text-sm font-bold">@_alertMessage</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="grid grid-cols-1 gap-5">
+                <!-- Merchant Selection -->
+                <div class="space-y-1">
+                    <label class="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Select
+                        Merchant</label>
+                    <div class="relative flex items-center">
+                        <i data-lucide="building" class="absolute left-4 w-4 h-4 text-muted-foreground"></i>
+                        <select @onchange="OnMerchantChanged"
+                                class="w-full pl-11 pr-10 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium shadow-sm appearance-none cursor-pointer">
+                            <option value="">Choose a Merchant...</option>
+                            @if (_merchants != null)
+                            {
+                                @foreach (var m in _merchants)
+                                {
+                                    <option value="@m.Id.ToString()">@m.Name</option>
+                                }
+                            }
+                        </select>
+                        <i data-lucide="chevron-down"
+                           class="absolute right-4 w-4 h-4 text-muted-foreground pointer-events-none"></i>
+                    </div>
+                    @if (string.IsNullOrEmpty(_inventoryRequest.MerchantId) && _hasSubmittedAttempt)
+                    {
+                        <div class="text-xs text-destructive font-semibold mt-1">Merchant is required.</div>
+                    }
+                </div>
+
+                <!-- Branch & Product Info -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Target
+                            Branch</label>
+                        <div class="relative flex items-center">
+                            <i data-lucide="store" class="absolute left-4 w-4 h-4 text-muted-foreground"></i>
+                            <select @bind="_inventoryRequest.BranchId"
+                                    class="w-full pl-11 pr-10 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium shadow-sm appearance-none cursor-pointer">
+                                <option value="">Select Branch...</option>
+                                @foreach (var b in _filteredBranches)
+                                {
+                                    <option value="@b.Id.ToString()">@b.Name</option>
+                                }
+                            </select>
+                            <i data-lucide="chevron-down"
+                               class="absolute right-4 w-4 h-4 text-muted-foreground pointer-events-none"></i>
+                        </div>
+                        <ValidationMessage For="@(() => _inventoryRequest.BranchId)"
+                                           class="text-xs text-destructive font-semibold mt-1"/>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label
+                            class="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Product</label>
+                        <div class="relative flex items-center">
+                            <i data-lucide="package" class="absolute left-4 w-4 h-4 text-muted-foreground"></i>
+                            <select @bind="_inventoryRequest.ProductId"
+                                    class="w-full pl-11 pr-10 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium shadow-sm appearance-none cursor-pointer">
+                                <option value="">Select Product...</option>
+                                @foreach (var p in _filteredProducts)
+                                {
+                                    <option value="@p.Id.ToString()">@p.Name (@p.Sku)</option>
+                                }
+                            </select>
+                            <i data-lucide="chevron-down"
+                               class="absolute right-4 w-4 h-4 text-muted-foreground pointer-events-none"></i>
+                        </div>
+                        <ValidationMessage For="@(() => _inventoryRequest.ProductId)"
+                                           class="text-xs text-destructive font-semibold mt-1"/>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Opening Stock
+                        Quantity</label>
+                    <div class="relative flex items-center">
+                        <i data-lucide="hash" class="absolute left-4 w-4 h-4 text-muted-foreground"></i>
+                        <InputNumber @bind-Value="_inventoryRequest.StockQuantity" placeholder="e.g. 50"
+                                     class="w-full pl-11 pr-4 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:outline-none font-medium shadow-sm"/>
+                    </div>
+                    <ValidationMessage For="@(() => _inventoryRequest.StockQuantity)"
+                                       class="text-xs text-destructive font-semibold mt-1"/>
+                </div>
+
+                <hr class="border-border/30 my-2"/>
+            </div>
+
+            <div class="pt-4 flex items-center gap-4">
+                <button type="submit"
+                        class="btn btn-primary px-8 h-12 shadow-xl shadow-primary/30 flex items-center gap-3 transition-all"
+                        disabled="@_isSubmitting">
+                    @if (_isSubmitting)
+                    {
+                        <div class="animate-spin rounded-full h-5 w-5 border-4 border-t-white border-white/20"></div>
+                    }
+                    else
+                    {
+                        <i data-lucide="check-circle" class="w-5 h-5 font-black"></i>
+                    }
+                    <span class="font-black uppercase tracking-tight text-sm">Allocate Stock</span>
+                </button>
+                <button type="button" class="btn btn-ghost rounded-xl px-6 py-3 font-bold text-sm" @onclick="GoBack"
+                        disabled="@_isSubmitting">Cancel
+                </button>
+            </div>
+
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private InventoryFormModel _inventoryRequest = new();
+    private List<Merchant>? _merchants;
+    private List<Branch> _filteredBranches = new();
+    private List<Product> _filteredProducts = new();
+
+    private bool _isSubmitting = false;
+    private bool _hasSubmittedAttempt = false;
+
+    // Alert state
+    private string _alertMessage = "";
+    private string _alertType = "success";
+
+    public class InventoryFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Merchant is required.")]
+        public string MerchantId { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Branch is required.")]
+        public string BranchId { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Product is required.")]
+        public string ProductId { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Range(1, 1000000, ErrorMessage = "Stock must be at least 1.")]
+        public int StockQuantity { get; set; } = 0;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/merchants");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+                if (result is { Data: not null })
+                {
+                _merchants = result.Data;
+                _inventoryRequest.MerchantId = _merchants[0].Id.ToString();
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrMessageResponse>();
+                await Notification.ShowError(error.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Initialization error: {ex.Message}");
+        }
+    }
+
+    private async Task OnMerchantChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+        _inventoryRequest.MerchantId = val;
+        _inventoryRequest.BranchId = "";
+        _inventoryRequest.ProductId = "";
+        _filteredBranches.Clear();
+        _filteredProducts.Clear();
+
+        if (Guid.TryParse(val, out var merchantId))
+        {
+            await LoadBranches(merchantId);
+            await LoadProducts(merchantId);
+        }
+    }
+
+    private async Task LoadBranches(Guid merchantId)
+    {
+        var response = await Http.GetAsync($"api/branches?merchantId={merchantId}");
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Branch>>();
+            _filteredBranches = result?.Data ?? new List<Branch>();
+        }
+        else
+        {
+            await Notification.ShowError("Failed to load branches.");
+        }
+    }
+
+    private async Task LoadProducts(Guid merchantId)
+    {
+        var response = await Http.GetAsync($"api/products?merchantId={merchantId}");
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
+            _filteredProducts = result?.Data ?? new List<Product>();
+        }
+        else
+        {
+        await Notification.ShowError("Failed to load products.");
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/inventory");
+    }
+
+    private async Task HandleSubmit()
+    {
+        _hasSubmittedAttempt = true;
+        if (string.IsNullOrEmpty(_inventoryRequest.MerchantId) ||
+            string.IsNullOrEmpty(_inventoryRequest.BranchId) ||
+            string.IsNullOrEmpty(_inventoryRequest.ProductId)) return;
+
+        _isSubmitting = true;
+
+        try
+        {
+            var request = new BranchInventoryCreateRequest
+            {
+                MerchantId = Guid.Parse(_inventoryRequest.MerchantId),
+                BranchId = Guid.Parse(_inventoryRequest.BranchId),
+                ProductId = Guid.Parse(_inventoryRequest.ProductId),
+                StockQuantity = _inventoryRequest.StockQuantity
+            };
+
+            var response = await Http.PostAsJsonAsync("api/inventories", request);
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Stock allocated successfully!");
+                Navigation.NavigateTo("/inventory");
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrMessageResponse>();
+                await Notification.ShowError(error.Message, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

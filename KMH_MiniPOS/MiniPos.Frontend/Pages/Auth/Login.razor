@@ -1,0 +1,540 @@
+@page "/login"
+@inject NotificationService Notification
+@layout EmptyLayout
+
+<PageTitle>Sign In — MiniPOS</PageTitle>
+
+<!-- ─── Full-screen dark background ───────────────────────────────────────── -->
+<div class="login-bg">
+
+    <!-- Ambient glow orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- Grid pattern overlay -->
+    <div class="grid-overlay"></div>
+
+    <!-- ─── Centered card ──────────────────────────────────────────────────── -->
+    <div class="login-wrapper animate-slide-up">
+
+        <!-- Brand mark -->
+        <div class="brand-mark">
+            <div class="brand-icon">
+                <i data-lucide="zap" class="brand-lucide"></i>
+            </div>
+            <span class="brand-name">Mini<span class="brand-accent">POS</span></span>
+        </div>
+
+        <!-- Glass card -->
+        <div class="login-card">
+
+            <!-- Card header -->
+            <div class="card-header">
+                <h1 class="card-title">Welcome back</h1>
+                <p class="card-subtitle">Sign in to your workspace to continue</p>
+            </div>
+
+
+            <!-- Form -->
+            <form @onsubmit="HandleLogin" @onsubmit:preventDefault class="login-form">
+
+                <!-- Email field -->
+                <div class="field-group">
+                    <label for="login-email" class="field-label">Email address</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <i data-lucide="mail" class="field-icon-svg"></i>
+                        </span>
+                        <input id="login-email"
+                               type="email"
+                               placeholder="you@company.com"
+                               @bind="_email"
+                               @bind:event="oninput"
+                               autocomplete="email"
+                               disabled="@_isSubmitting"
+                               class="field-input"
+                               />
+                    </div>
+                </div>
+
+                <!-- Password field -->
+                <div class="field-group">
+                    <div class="field-label-row">
+                        <label for="login-password" class="field-label">Password</label>
+                    </div>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <i data-lucide="lock" class="field-icon-svg"></i>
+                        </span>
+                        <input id="login-password"
+                               type="@(_showPassword ? "text" : "password")"
+                               placeholder="••••••••••••"
+                               @bind="_password"
+                               @bind:event="oninput"
+                               autocomplete="current-password"
+                               disabled="@_isSubmitting"
+                               class="field-input"
+                               />
+                        <button type="button"
+                                class="input-toggle"
+                                @onclick="TogglePasswordVisibility"
+                                aria-label="Toggle password visibility"
+                                tabindex="-1">
+                            @if (_showPassword)
+                            {
+                                <i data-lucide="eye-off" class="field-icon-svg"></i>
+                            }
+                            else
+                            {
+                                <i data-lucide="eye" class="field-icon-svg"></i>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit"
+                        id="btn-login-submit"
+                        class="btn-login"
+                        disabled="@_isSubmitting">
+                    @if (_isSubmitting)
+                    {
+                        <span class="spinner"></span>
+                        <span>Signing in…</span>
+                    }
+                    else
+                    {
+                        <i data-lucide="log-in" class="btn-icon"></i>
+                        <span>Sign in</span>
+                    }
+                </button>
+
+            </form>
+
+            <!-- Footer tagline -->
+            <p class="card-footer">
+                MiniPOS &mdash; Point of Sale Platform &copy; @DateTime.Now.Year
+            </p>
+
+        </div><!-- /login-card -->
+
+    </div><!-- /login-wrapper -->
+
+</div><!-- /login-bg -->
+
+<!-- ─── Scoped styles ──────────────────────────────────────────────────────── -->
+<style>
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .login-bg {
+        position: relative;
+        min-height: 100vh;
+        width: 100%;
+        background: #020617; /* slate-950 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 2rem 1rem;
+    }
+
+    /* Ambient glow orbs */
+    .orb {
+        position: absolute;
+        border-radius: 9999px;
+        filter: blur(80px);
+        pointer-events: none;
+    }
+
+    .orb-1 {
+        width: 480px;
+        height: 480px;
+        top: -120px;
+        right: -100px;
+        background: radial-gradient(circle, hsl(250 84% 54% / 0.22) 0%, transparent 70%);
+    }
+
+    .orb-2 {
+        width: 360px;
+        height: 360px;
+        bottom: -80px;
+        left: -80px;
+        background: radial-gradient(circle, hsl(280 84% 54% / 0.16) 0%, transparent 70%);
+    }
+
+    .orb-3 {
+        width: 200px;
+        height: 200px;
+        top: 40%;
+        left: 15%;
+        background: radial-gradient(circle, hsl(220 84% 60% / 0.10) 0%, transparent 70%);
+    }
+
+    /* Subtle dot-grid overlay */
+    .grid-overlay {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+        pointer-events: none;
+    }
+
+    /* ── Wrapper ─────────────────────────────────────────────────────────── */
+    .login-wrapper {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        max-width: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.75rem;
+    }
+
+    /* ── Brand mark ──────────────────────────────────────────────────────── */
+    .brand-mark {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .brand-icon {
+        width: 2.75rem;
+        height: 2.75rem;
+        background: linear-gradient(135deg, hsl(250 84% 54%), hsl(280 84% 54%));
+        border-radius: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 24px hsl(250 84% 54% / 0.45);
+    }
+
+    .brand-lucide {
+        width: 1.4rem;
+        height: 1.4rem;
+        color: #fff;
+    }
+
+    .brand-name {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: #fff;
+    }
+
+    .brand-accent {
+        background: linear-gradient(90deg, hsl(250 84% 64%), hsl(280 84% 70%));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    /* ── Glass card ──────────────────────────────────────────────────────── */
+    .login-card {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 1.25rem;
+        padding: 2rem 2rem 1.5rem;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+        0 32px 64px -12px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Card header */
+    .card-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .card-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #f1f5f9; /* slate-100 */
+        letter-spacing: -0.03em;
+        margin: 0 0 0.25rem;
+    }
+
+    .card-subtitle {
+        font-size: 0.875rem;
+        color: #64748b; /* slate-500 */
+        margin: 0;
+    }
+
+    /* ── Form ────────────────────────────────────────────────────────────── */
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.1rem;
+    }
+
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .field-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .field-label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #94a3b8; /* slate-400 */
+        letter-spacing: 0.01em;
+    }
+
+    /* Input wrapper with icon */
+    .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 0.875rem;
+        display: flex;
+        align-items: center;
+        pointer-events: none;
+        color: #475569;
+    }
+
+    .field-icon-svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* The actual <input> */
+    .field-input {
+        width: 100%;
+        height: 2.75rem;
+        padding: 0 1rem 0 2.6rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 0.75rem;
+        color: #dce7ff; /* slate-200 */
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    .field-input::placeholder {
+        color: #334155; /* slate-700 */
+    }
+
+    .field-input:focus {
+        border-color: hsl(250 84% 54% / 0.6);
+        background: rgba(255, 255, 255, 0.07);
+        box-shadow: 0 0 0 3px hsl(250 84% 54% / 0.15);
+    }
+
+    .field-input:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Extra right padding for the toggle button */
+    .field-input--padded {
+        padding-right: 2.75rem;
+    }
+
+    /* Toggle password visibility */
+    .input-toggle {
+        position: absolute;
+        right: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: #475569;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 0.375rem;
+        transition: color 0.2s;
+    }
+
+    .input-toggle:hover {
+        color: #94a3b8;
+    }
+
+    /* ── Submit button ───────────────────────────────────────────────────── */
+    .btn-login {
+        margin-top: 0.5rem;
+        width: 100%;
+        height: 2.875rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border: none;
+        border-radius: 0.875rem;
+        background: linear-gradient(135deg, hsl(250 84% 54%), hsl(280 84% 56%));
+        color: #fff;
+        font-family: 'Outfit', sans-serif;
+        font-size: 0.9375rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+        box-shadow: 0 8px 24px hsl(250 84% 54% / 0.35),
+        0 0 0 1px hsl(250 84% 54% / 0.4) inset;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-login::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.15), transparent);
+        pointer-events: none;
+    }
+
+    .btn-login:hover:not(:disabled) {
+        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 16px 36px hsl(250 84% 54% / 0.45),
+        0 0 0 1px hsl(250 84% 54% / 0.5) inset;
+    }
+
+    .btn-login:active:not(:disabled) {
+        transform: translateY(0) scale(0.99);
+    }
+
+    .btn-login:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-icon {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Spinner */
+    .spinner {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 9999px;
+        animation: spin 0.7s linear infinite;
+        display: inline-block;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ── Card footer ─────────────────────────────────────────────────────── */
+    .card-footer {
+        margin-top: 1.5rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #1e293b; /* slate-800 – very subtle */
+        letter-spacing: 0.01em;
+    }
+
+    /* ── Shared animation (slide-up reused from app.css) ─────────────────── */
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(24px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-slide-up {
+        animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @@keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-slide-down {
+        animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+</style>
+
+@code {
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private string _email = "";
+    private string _password = "";
+    private bool _isSubmitting;
+    private bool _showPassword;
+
+    private void TogglePasswordVisibility() => _showPassword = !_showPassword;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            await Notification.ShowWarning("Please enter both email and password.");
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/signin");
+            request.Content = JsonContent.Create(new SigninRequest
+            {
+                Email = _email,
+                Password = _password
+            });
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                Nav.NavigateTo("/");
+            }
+            else
+            {
+                await Notification.ShowError("Invalid email or password. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError("A connection error occurred. Check your network.");
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

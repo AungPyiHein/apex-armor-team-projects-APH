@@ -1,0 +1,444 @@
+@page "/users/add"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+
+<PageTitle>Add Staff - MiniPOS</PageTitle>
+
+<div class="animate-slide-down max-w-3xl mx-auto pb-12">
+    <!-- Header -->
+    <div class="mb-4">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Staff Members</span>
+        </button>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+        <h1 class="text-2xl font-black tracking-tight text-foreground">Add New Staff</h1>
+
+        <!-- Compact Role Selection -->
+        <div class="flex p-1 bg-muted/30 backdrop-blur-sm rounded-xl border border-border/40 w-fit">
+            <button class="px-6 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2
+                @(_selectedRole == "Merchant" ? "bg-white text-primary shadow-sm border border-border/20" : "text-muted-foreground hover:text-foreground")"
+                    @onclick='() => SelectRole("Merchant")'>
+                <i data-lucide="briefcase" class="w-3.5 h-3.5"></i>
+                Merchant
+            </button>
+            <button class="px-6 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2
+                @(_selectedRole == "Cashier" ? "bg-white text-success shadow-sm border border-border/20" : "text-muted-foreground hover:text-foreground")"
+                    @onclick='() => SelectRole("Cashier")'>
+                <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
+                Cashier
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Main Form Card -->
+    <div class="pos-card p-0 overflow-hidden bg-white/60 shadow-lg border-border/40 animate-slide-up">
+        <!-- Form Fields -->
+        <div class="p-8 space-y-8">
+            <!-- Account Information Section -->
+            <div class="space-y-6">
+                <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                    Account Information
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Full
+                            Name</label>
+                        <input type="text" @bind="_userName" placeholder="e.g. John Doe"
+                               class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium placeholder:text-muted-foreground/30"/>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Email
+                            Address</label>
+                        <input type="email" @bind="_email" placeholder="e.g. john@example.com"
+                               class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium placeholder:text-muted-foreground/30"/>
+                    </div>
+                    <div class="space-y-1.5 md:col-span-2">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Password</label>
+                        <div class="relative">
+                            <input type="@(_showPassword ? "text" : "password")" @bind="_password"
+                                   placeholder="Min 8 characters"
+                                   class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium placeholder:text-muted-foreground/30 pr-12"/>
+                            <button type="button"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors p-1"
+                                    @onclick="TogglePassword">
+                                <i data-lucide="@(_showPassword ? "eye-off" : "eye")" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merchant Details Section (shown for Merchant role) -->
+            @if (_selectedRole == "Merchant")
+            {
+                <div class="animate-fade-in pt-4 border-t border-border/30 space-y-6">
+                    <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                        Merchant Details
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Business
+                                Name</label>
+                            <input type="text" @bind="_merchantName" placeholder="e.g. Super Mart LLC"
+                                   class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium placeholder:text-muted-foreground/30"/>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Business
+                                Email</label>
+                            <input type="email" @bind="_merchantContactEmail" placeholder="(Optional)"
+                                   class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium placeholder:text-muted-foreground/30"/>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Branch Assignment Section (shown for Cashier role) -->
+            @if (_selectedRole == "Cashier")
+            {
+                <div class="animate-fade-in pt-4 border-t border-border/30 space-y-6">
+                    <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                        Branch Assignment
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Select
+                                Merchant</label>
+                            <div class="relative">
+                                <select @bind="_merchantId" @bind:after="OnMerchantChanged"
+                                        class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium appearance-none cursor-pointer">
+                                    <option value="">Choose a merchant...</option>
+                                    @if (_merchants != null)
+                                    {
+                                        @foreach (var merchant in _merchants)
+                                        {
+                                            <option value="@merchant.Id">@merchant.Name</option>
+                                        }
+                                    }
+                                </select>
+                                <div
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
+                                    <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Assign
+                                to Branch</label>
+                            <div class="relative">
+                                <select @bind="_branchId"
+                                        class="w-full px-4 py-2.5 bg-muted/20 border border-border/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all font-medium appearance-none cursor-pointer">
+                                    <option value="">Choose a branch...</option>
+                                    @if (_branches != null)
+                                    {
+                                        @foreach (var branch in _branches)
+                                        {
+                                            <option value="@branch.Id">@branch.Name</option>
+                                        }
+                                    }
+                                </select>
+                                <div
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
+                                    <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Footer Actions -->
+        <div
+            class="px-8 py-6 bg-muted/10 border-t border-border/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p class="text-[10px] text-muted-foreground/50 font-medium italic">
+                All fields are required unless marked as optional.
+            </p>
+            <div class="flex gap-3 w-full sm:w-auto">
+                <button
+                    class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-6 flex items-center gap-2 transition-all font-bold text-xs uppercase tracking-tight"
+                    @onclick="GoBack" disabled="@_isSubmitting">
+                    Cancel
+                </button>
+                <button
+                    class="btn btn-primary px-8 h-10 shadow-xl shadow-primary/30 flex items-center gap-3 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    @onclick="HandleSubmit" disabled="@(!IsFormValid() || _isSubmitting)">
+                    @if (_isSubmitting)
+                    {
+                        <div class="animate-spin rounded-full h-4 w-4 border-4 border-t-white border-white/20"></div>
+                        <span class="font-black uppercase tracking-tight text-xs">Creating...</span>
+                    }
+                    else
+                    {
+                        <i data-lucide="user-plus" class="w-4 h-4 font-black"></i>
+                        <span class="font-black uppercase tracking-tight text-xs">Create Staff Account</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (_showSuccessView)
+    {
+        <!-- Success Card View -->
+        <div class="max-w-lg mx-auto animate-scale-in py-8">
+            <div class="pos-card overflow-hidden bg-white shadow-2xl border-border/20 relative">
+                <div class="p-10 flex flex-col items-center text-center">
+                    <div
+                        class="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mb-6 text-success animate-bounce-subtle">
+                        <i data-lucide="check" class="w-10 h-10"></i>
+                    </div>
+
+                    <h2 class="text-2xl font-black text-foreground mb-2">Account Created!</h2>
+                    <p class="text-sm text-muted-foreground mb-8">Staff registration was successful.</p>
+
+                    <!-- Compact Summary -->
+                    <div class="w-full bg-muted/20 rounded-2xl p-6 mb-8 text-left space-y-4">
+                        <div class="flex justify-between items-center border-b border-border/20 pb-4">
+                            <span
+                                class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Details</span>
+                            <span class="text-[10px] font-black text-success uppercase">@_lastCreatedRole</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-primary shadow-sm border border-border/20">
+                                    <i data-lucide="user" class="w-4 h-4"></i>
+                                </div>
+                                <span class="text-sm font-bold text-foreground">@_lastCreatedUserName</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-muted-foreground shadow-sm border border-border/20">
+                                    <i data-lucide="mail" class="w-4 h-4"></i>
+                                </div>
+                                <span class="text-sm font-medium text-muted-foreground">@_lastCreatedEmail</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3 w-full">
+                        <button
+                            class="w-full bg-primary text-white rounded-xl py-3.5 font-bold shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:-translate-y-0.5 transition-all"
+                            @onclick="ResetForm">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            Add Another Staff
+                        </button>
+                        <button
+                            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 w-full py-3.5 flex items-center justify-center gap-2 group transition-all"
+                            @onclick="GoBack">
+                            <i data-lucide="arrow-left"
+                               class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+                            <span class="font-bold text-xs uppercase tracking-tight">Return to Directory</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    // Form state
+    private string _selectedRole = "Merchant";
+    private string _userName = "";
+    private string _email = "";
+    private string _password = "";
+    private bool _showPassword;
+
+    // Merchant fields
+    private string _merchantName = "";
+    private string _merchantContactEmail = "";
+
+    // Cashier fields
+    private string _merchantId = "";
+    private string _branchId = "";
+
+    // Dropdown data
+    private List<Merchant>? _merchants;
+    private List<Branch>? _branches;
+
+    // UI state
+    private bool _isSubmitting;
+    private bool _showSuccessView;
+
+    // Last created info for success view
+    private string? _lastCreatedUserName;
+    private string? _lastCreatedEmail;
+    private string? _lastCreatedRole;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/merchants");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load merchants.");
+                return;
+            }
+
+            var merchantData = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+            _merchants = merchantData?.Data;
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"An error occurred during initialization: {ex.Message}");
+        }
+    }
+
+    private void SelectRole(string role)
+    {
+        _selectedRole = role;
+    }
+
+    private void TogglePassword()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private bool IsFormValid()
+    {
+        if (string.IsNullOrWhiteSpace(_userName) || string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+            return false;
+
+        if (_selectedRole == "Merchant" && string.IsNullOrWhiteSpace(_merchantName))
+            return false;
+
+        if (_selectedRole == "Cashier" && (string.IsNullOrWhiteSpace(_merchantId) || string.IsNullOrWhiteSpace(_branchId)))
+            return false;
+
+        return true;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!IsFormValid())
+        {
+            await Notification.ShowWarning("Please fill in all required fields.");
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            var response = await Http.PostAsync("/api/users",
+                JsonContent.Create(new
+                {
+                    UserName = _userName,
+                    Email = _email,
+                    Role = _selectedRole,
+                    Password = _password,
+                    MerchantId = _merchantId,
+                    BranchId = _branchId
+                }));
+
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess($"{_selectedRole} account for \"{_userName}\" created successfully!");
+                _showSuccessView = true;
+
+                // Store last created info
+                _lastCreatedUserName = _userName;
+                _lastCreatedEmail = _email;
+                _lastCreatedRole = _selectedRole;
+
+                _userName = "";
+                _email = "";
+                _password = "";
+                _merchantName = "";
+                _merchantContactEmail = "";
+                _merchantId = "";
+                _branchId = "";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"{_selectedRole} account creation failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"A network error occurred: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private void ResetForm()
+    {
+        _showSuccessView = false;
+        _userName = "";
+        _email = "";
+        _password = "";
+        _merchantName = "";
+        _merchantContactEmail = "";
+        _merchantId = "";
+        _branchId = "";
+        StateHasChanged();
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/users");
+    }
+
+    private async Task ReinitIcons()
+    {
+        await JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+    private async Task OnMerchantChanged()
+    {
+        if (!string.IsNullOrEmpty(_merchantId))
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, $"api/branches?merchantId={_merchantId}");
+                request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+                var response = await Http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    var branchData = await response.Content.ReadFromJsonAsync<PagedResult<Branch>>();
+                    _branches = branchData?.Data;
+                }
+                else
+                {
+                    await Notification.ShowError("Failed to load branches for the selected merchant.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await Notification.ShowError($"Error loading branches: {ex.Message}");
+            }
+        }
+        else
+        {
+            _branches = null;
+        }
+
+        // Reset the branch selection if the merchant is changed
+        _branchId = "";
+    }
+
+}

@@ -1,0 +1,124 @@
+@page "/settings"
+
+<PageTitle>Settings - MiniPOS</PageTitle>
+
+<div class="animate-slide-down h-full flex flex-col pb-8">
+    <div class="mb-12">
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
+        <p class="text-muted-foreground mt-1 text-sm">Manage your store preferences, billing, and system configurations.</p>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-8 flex-1">
+        <!-- Settings Sidebar -->
+        <aside class="w-full md:w-64 shrink-0">
+            <nav class="flex flex-col space-y-1">
+                <button class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 text-primary font-bold transition-colors">
+                    <i data-lucide="building" class="w-4 h-4"></i>
+                    Store Details
+                </button>
+                <button class="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium transition-colors">
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                    Appearance
+                </button>
+                <button class="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium transition-colors">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                    Notifications
+                </button>
+                <button class="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium transition-colors">
+                    <i data-lucide="shield" class="w-4 h-4"></i>
+                    Security
+                </button>
+                <button class="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium transition-colors">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                    Billing
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Settings Content -->
+        <div class="flex-1 max-w-3xl">
+            <!-- Glassmorphic Settings Pane -->
+            <div class="pos-card p-8 bg-white/60 shadow-lg border-border/40">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-foreground">Store Details</h2>
+                    <p class="text-sm text-muted-foreground">Update your brand identity and public information.</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Brand Section -->
+                    <div class="flex items-center gap-6 pb-6 border-b border-border/50">
+                        <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-2xl shadow-md border-4 border-white">
+                            SM
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-sm text-foreground mb-2">Brand Logo</h3>
+                            <div class="flex gap-2">
+                                <button class="btn btn-outline bg-white text-xs h-8">Upload New</button>
+                                <button class="btn btn-ghost text-xs h-8 text-destructive">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Fields -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Store Name</label>
+                            <input type="text" value="Super Mart LLC" class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact Email</label>
+                            <input type="email" value="supermart@example.com" class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium" />
+                        </div>
+                        <div class="space-y-2 sm:col-span-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tax ID / VAT</label>
+                            <input type="text" value="US-987654321" class="w-full px-4 py-2.5 bg-white border border-border/60 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium" />
+                        </div>
+                    </div>
+
+                    <!-- Toggles -->
+                    <div class="pt-6 border-t border-border/50 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-sm text-foreground">Accept Online Orders</h3>
+                                <p class="text-xs text-muted-foreground">Allow customers to place orders via the web portal.</p>
+                            </div>
+                            <!-- Custom iOS style toggle -->
+                            <div class="w-11 h-6 bg-primary rounded-full relative cursor-pointer shadow-inner">
+                                <div class="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow-sm"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-sm text-foreground">Digital Receipts</h3>
+                                <p class="text-xs text-muted-foreground">Send receipts via email automatically after checkout.</p>
+                            </div>
+                            <div class="w-11 h-6 bg-muted-foreground/30 rounded-full relative cursor-pointer shadow-inner transition-colors">
+                                <div class="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5 shadow-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="mt-8 pt-6 border-t border-border/50 flex justify-end gap-3">
+                    <button class="btn btn-ghost">Cancel</button>
+                    <button class="btn btn-primary shadow-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+}

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniPOS</title>
+    <base href="/" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="css/app.css" />
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    
+    <script>
+        window.cookieHelper = {
+            getCookie: function (name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return null;
+            },
+            setCookie: function (name, value, days) {
+                let expires = "";
+                if (days) {
+                    const date = new Date();
+                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                    expires = "; expires=" + date.toUTCString();
+                }
+                document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax; Secure";
+            },
+            deleteCookie: function (name) {
+                document.cookie = name + '=; Max-Age=-99999999; path=/;';
+            }
+        };
+        
+        window.initIcons = () => {
+            if (window.lucide) {
+                document.querySelectorAll('[data-lucide]').forEach(el => {
+                    const iconName = el.getAttribute('data-lucide');
+                    if (iconName && !el.getAttribute('data-lucide-initialized')) {
+                        // Create a temporary element to let lucide generate the SVG
+                        const tempDiv = document.createElement('div');
+                        const tempIcon = document.createElement('i');
+                        tempIcon.setAttribute('data-lucide', iconName);
+                        // Deliberately NOT copying el.className to tempIcon here.
+                        // Copying layout/positional classes (like absolute, top-1/2, w-4, h-4) 
+                        // causes the SVG to be displaced inside the original wrapper.
+                        tempDiv.appendChild(tempIcon);
+                        
+                        // Generate the SVG safely
+                        lucide.createIcons({ root: tempDiv });
+                        const svgElement = tempDiv.querySelector('svg');
+                        
+                        if (svgElement) {
+                            // Clear existing content and append the generated SVG
+                            el.innerHTML = '';
+                            
+                            // Adjust the SVG to perfectly fill the wrapper <i>
+                            svgElement.style.width = '100%';
+                            svgElement.style.height = '100%';
+                            svgElement.style.pointerEvents = 'none';
+                            
+                            // Let the outer <i> handle layout (flex, absolute, width, height)
+                            // Remove nested display modifications that break CSS utility classes.
+                            el.style.display = '';
+                            el.style.alignItems = '';
+                            el.style.justifyContent = '';
+                            
+                            el.appendChild(svgElement);
+                            el.setAttribute('data-lucide-initialized', 'true');
+                        }
+                    }
+                });
+            }
+        };
+    </script>
+</head>
+
+<body class="bg-background text-foreground font-sans antialiased">
+    <div id="app">
+        <div class="flex h-screen items-center justify-center">
+            <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="hidden fixed bottom-0 left-0 w-full bg-destructive text-destructive-foreground p-4 flex justify-between items-center z-50">
+        An unhandled error has occurred.
+        <div class="flex gap-4">
+            <a href="" class="reload underline cursor-pointer">Reload</a>
+            <a class="dismiss cursor-pointer">🗙</a>
+        </div>
+    </div>
+    
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

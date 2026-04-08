@@ -1,0 +1,381 @@
+@page "/inventory/{InventoryId}"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+
+<PageTitle>Inventory Details - MiniPOS</PageTitle>
+
+<div class="animate-slide-down max-w-4xl mx-auto pb-12">
+    <!-- Header with Back Navigation -->
+    <div class="mb-8 flex justify-between items-center">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Inventory</span>
+        </button>
+        <div class="flex items-center gap-2">
+            <button class="btn btn-primary btn-sm rounded-lg flex items-center gap-1.5" @onclick="() => _showEditModal = true">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Stock
+            </button>
+            <button class="btn btn-outline border-destructive/30 text-destructive btn-sm rounded-lg flex items-center gap-1.5 hover:bg-destructive/5" @onclick="() => _showDeleteModal = true">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Withdraw
+            </button>
+        </div>
+    </div>
+    
+    <!-- Floating Alert Box -->
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-down">
+            <div class="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md
+                @(_alertType == "success" ? "bg-emerald-50/90 border-emerald-200 text-emerald-800" : "bg-rose-50/90 border-rose-200 text-rose-800")">
+                <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+                    @(_alertType == "success" ? "bg-emerald-100" : "bg-rose-100")">
+                    <i data-lucide="@(_alertType == "success" ? "check-circle" : "alert-circle")" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest opacity-60">@(_alertType == "success" ? "Success" : "Error")</p>
+                    <p class="text-sm font-bold">@_alertMessage</p>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_inventory == null)
+    {
+        <div class="flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-10 w-10 border-4 border-t-primary border-primary/20"></div>
+            <span class="mt-4 text-sm font-bold text-muted-foreground">Loading inventory parameters...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Main Details display -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Info column -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
+                <!-- Profile Banner Card -->
+                <div class="pos-card p-0 overflow-hidden bg-white/60 shadow-xl border-border/40 flex flex-col h-full">
+                    <div class="h-48 w-full bg-gradient-to-br @_ui.Gradient relative flex items-center justify-center">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-3xl"></div>
+                        <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/20 rounded-full blur-2xl"></div>
+                        
+                        <!-- Visual representation -->
+                        <div class="relative z-10 flex flex-col items-center gap-3">
+                            <div class="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/40 shadow-xl">
+                                <i data-lucide="@_ui.Icon" class="w-10 h-10 text-white drop-shadow-md"></i>
+                            </div>
+                            <span class="badge bg-white/90 backdrop-blur-sm @_ui.BadgeClass text-[10px] font-black uppercase tracking-widest shadow-sm rounded-full px-3 py-1 border border-border/20">
+                                @(_inventory.CategoryName ?? "General")
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-8">
+                        <div class="flex flex-col gap-1 mb-4">
+                            <span class="text-[10px] font-black text-primary uppercase tracking-[0.2em] leading-none">Branch Inventory Item</span>
+                            <h1 class="text-3xl font-black text-foreground tracking-tight">@_inventory.Name</h1>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-6 mt-2 pt-6 border-t border-border/30">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">SKU / Stock ID</span>
+                                <div class="flex items-center gap-2 text-foreground font-bold">
+                                    <i data-lucide="tag" class="w-4 h-4 text-primary/60"></i>
+                                    <span>@_inventory.Sku</span>
+                                </div>
+                            </div>
+                            <div class="space-y-1 text-right">
+                                <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Store Branch</span>
+                                <div class="flex items-center gap-2 text-foreground font-bold justify-end">
+                                    <i data-lucide="store" class="w-4 h-4 text-primary/60"></i>
+                                    <span>@_inventory.BranchName</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right side Sidebar specs -->
+            <div class="flex flex-col gap-6">
+                <!-- Stock Status & Pricing -->
+                <div class="pos-card bg-white/60 shadow-lg border-border/40 p-6 relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-2xl"></div>
+                    
+                    <h3 class="text-xs font-black uppercase tracking-[0.1em] text-muted-foreground mb-6 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Stock Overview
+                    </h3>
+                    
+                    <div class="space-y-6 relative z-10">
+                        <div class="bg-muted/20 p-5 rounded-2xl border border-border/30 flex flex-col items-center justify-center gap-1 text-center">
+                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Current Stock</span>
+                            <span class="text-4xl font-black font-outfit @_ui.TextColor">@_inventory.StockQuantity</span>
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <span class="w-2 h-2 rounded-full @_ui.StatusClass shadow-[0_0_8px_currentColor]"></span>
+                                <span class="text-[10px] font-black uppercase tracking-widest @_ui.TextColor">@(_inventory.StockQuantity < 10 ? "Low Stock" : "Healthy")</span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3 px-1">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="font-bold text-muted-foreground">Retail Price</span>
+                                <span class="font-black font-outfit text-primary text-xl">
+                                    <span class="text-xs mr-0.5 opacity-50">$</span>@_inventory.Price.ToString("F2")
+                                </span>
+                            </div>
+                            <hr class="border-border/30" />
+                            <div class="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                                <span>Stock Valuation</span>
+                                <span>$@((_inventory.Price * _inventory.StockQuantity).ToString("N2"))</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions Card -->
+                @* <div class="pos-card bg-muted/10 border-dashed border-border/60 p-5 flex flex-col gap-3"> *@
+                @*     <button class="btn bg-white hover:bg-primary/5 border-border/60 text-foreground font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all grayscale hover:grayscale-0 hover:border-primary/30" @onclick="() => _showEditModal = true"> *@
+                @*         <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-primary"></i> Adjustment *@
+                @*     </button> *@
+                @*     <button class="btn bg-white hover:bg-rose-50 border-border/60 text-foreground font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all grayscale hover:grayscale-0 hover:border-rose-300" @onclick="() => _showDeleteModal = true"> *@
+                @*         <i data-lucide="archive" class="w-3.5 h-3.5 text-rose-500"></i> Withdraw Product *@
+                @*     </button> *@
+                @* </div> *@
+            </div>
+        </div>
+
+        <!-- --- Action Modals --- -->
+
+        <!-- Edit Modal -->
+        @if (_showEditModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-sm p-7 animate-scale-up space-y-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <i data-lucide="pencil" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold leading-none">Modify Listing</h3>
+                            <p class="text-xs text-muted-foreground mt-1">Adjust quantity and master price.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">Stock Quantity</label>
+                            <div class="relative">
+                                <i data-lucide="hash" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50"></i>
+                                <input type="number" @bind="_editQuantity" class="w-full pl-10 pr-4 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:outline-none font-bold transition-all shadow-sm" />
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">Master Price ($)</label>
+                            <div class="relative">
+                                <i data-lucide="dollar-sign" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50"></i>
+                                <input type="number" step="0.01" @bind="_editPrice" class="w-full pl-10 pr-4 py-3 bg-white border border-border/60 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:outline-none font-bold transition-all shadow-sm" />
+                            </div>
+                            <p class="text-[9px] text-amber-600 font-bold mt-1 px-1 flex items-center gap-1">
+                                <i data-lucide="alert-circle" class="w-3 h-3"></i> Updates global product price
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 pt-2">
+                        <button class="flex-1 btn btn-ghost rounded-xl py-3 text-sm font-bold" @onclick='() => _showEditModal = false' disabled="@_isSubmitting">Cancel</button>
+                        <button class="flex-1 btn btn-primary rounded-xl py-3 text-sm font-bold shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center gap-2" @onclick="HandleEditInventory" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div> }
+                            <span>Update</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        
+        <!-- Withdraw Modal -->
+        @if (_showDeleteModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-border/40 w-full max-w-sm p-7 animate-scale-up space-y-6 text-center">
+                    <div class="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 mx-auto border border-rose-100 mb-2">
+                        <i data-lucide="archive" class="w-7 h-7"></i>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <h3 class="text-xl font-bold">Withdraw Listing?</h3>
+                        <p class="text-xs text-muted-foreground px-4">Are you sure you want to remove <b>@_inventory.Name</b> from the <b>@_inventory.BranchName</b> inventory catalog?</p>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button class="btn btn-destructive rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-rose-200" @onclick="HandleDeleteInventory" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/20 border-t-white"></div> }
+                            <span>Yes, Withdraw Listing</span>
+                        </button>
+                        <button class="btn btn-ghost rounded-xl py-3 text-sm font-bold" @onclick='() => _showDeleteModal = false' disabled="@_isSubmitting">Nevermind</button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string InventoryId { get; set; } = "";
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private BranchInventoryGetByIdResponse? _inventory;
+    private InventoryUI _ui = new();
+
+    // Modals controls
+    private bool _showEditModal = false;
+    private bool _showDeleteModal = false;
+
+    private decimal _editPrice = 0;
+    private int _editQuantity = 0;
+
+    private bool _isSubmitting = false;
+
+    // Alert state
+    private string _alertMessage = "";
+    private string _alertType = "success";
+
+    public class InventoryUI
+    {
+        public string Icon { get; set; } = "";
+        public string Gradient { get; set; } = "";
+        public string BadgeClass { get; set; } = "";
+        public string StatusClass { get; set; } = "";
+        public string TextColor { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/inventories/{InventoryId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _inventory = await response.Content.ReadFromJsonAsync<BranchInventoryGetByIdResponse>();
+                if (_inventory != null)
+                {
+                    _editPrice = _inventory.Price;
+                    _editQuantity = _inventory.StockQuantity;
+                    _ui = GetInventoryUI(_inventory);
+                }
+            }
+            else
+            {
+                await Notification.ShowError("Failed to load inventory parameters.", "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}", "error");
+        }
+    }
+
+    private InventoryUI GetInventoryUI(BranchInventoryGetByIdResponse item)
+    {
+        var catName = item.CategoryName ?? "General";
+        var hash = Math.Abs(catName.GetHashCode());
+        
+        var icons = new[] { "package", "box", "archive", "layers", "tag", "coffee", "utensils", "cup-soda", "ice-cream", "shopping-bag", "leaf", "croissant" };
+        var gradients = new[] { "from-primary to-primary", "from-blue-500 to-indigo-600", "from-emerald-400 to-teal-600", "from-orange-400 to-rose-500", "from-violet-400 to-purple-600" };
+        var colors = new[] { "text-primary", "text-blue-600", "text-emerald-600", "text-orange-600", "text-violet-600" };
+
+        var index = hash % icons.Length;
+        var styleIndex = hash % gradients.Length;
+
+        var statusClass = item.StockQuantity == 0 ? "bg-rose-500" : (item.StockQuantity < 10 ? "bg-amber-500" : "bg-emerald-500");
+        var textColor = item.StockQuantity == 0 ? "text-rose-600" : (item.StockQuantity < 10 ? "text-amber-600" : "text-emerald-600");
+
+        return new InventoryUI
+        {
+            Icon = icons[index],
+            Gradient = gradients[styleIndex],
+            BadgeClass = colors[styleIndex],
+            StatusClass = statusClass,
+            TextColor = textColor
+        };
+    }
+
+    private void GoBack() { Navigation.NavigateTo("/inventory"); }
+
+    private async Task HandleEditInventory()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var request = new BranchInventoryUpdateRequest
+            {
+                Price = _editPrice,
+                StockQuantity = _editQuantity
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/inventories/{InventoryId}", request);
+            if (response.IsSuccessStatusCode)
+            {
+                if (_inventory != null)
+                {
+                    _inventory.Price = _editPrice;
+                    _inventory.StockQuantity = _editQuantity;
+                    _ui = GetInventoryUI(_inventory);
+                }
+                await Notification.ShowSuccess("Inventory updated successfully!");
+                _showEditModal = false;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Update failed: {error}", "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}", "error");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task HandleDeleteInventory()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/inventories/{InventoryId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Listing withdrawn successfully!");
+                Navigation.NavigateTo("/inventory");
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrMessageResponse>();
+                await Notification.ShowError($"Withdrawal failed: {error}", "error");
+                _showDeleteModal = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}", "error");
+            _showDeleteModal = false;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) { await JSRuntime.InvokeVoidAsync("initIcons"); }
+    }
+}

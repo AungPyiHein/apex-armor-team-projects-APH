@@ -1,0 +1,687 @@
+@page "/users/{MerchantId:guid}/{UserId:guid}"
+@inject NotificationService Notification
+@using MiniPos.Frontend.Shared.Types
+
+<PageTitle>User Details - MiniPOS</PageTitle>
+
+<div class="animate-slide-down mx-auto pb-10 max-w-5xl">
+    <!-- Back Navigation -->
+    <div class="mb-4">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back To Staff Members</span>
+        </button>
+    </div>
+
+    @if (_user == null)
+    {
+        <div class="flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary mb-4"></div>
+            <span class="text-[10px] font-black text-muted-foreground tracking-widest uppercase">Loading Profile</span>
+        </div>
+    }
+    else
+    {
+        var nameParts = _user.UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var initials = nameParts.Length > 1
+            ? $"{nameParts[0][0]}{nameParts[nameParts.Length - 1][0]}".ToUpper()
+            : _user.UserName.Substring(0, Math.Min(2, _user.UserName.Length)).ToUpper();
+
+        <!-- Compact Hero Header -->
+        <div class="pos-card p-0 overflow-hidden bg-white/60 mb-8 border-border/40 shadow-sm transition-all hover:shadow-md group/hero">
+            <div class="relative px-8 py-10 flex flex-col md:flex-row items-center md:items-end gap-6 overflow-hidden">
+                <!-- Decorative Glows -->
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none group-hover/hero:bg-primary/10 transition-all duration-1000"></div>
+                <div class="absolute -left-20 -bottom-20 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl pointer-events-none group-hover/hero:bg-purple-500/10 transition-all duration-1000"></div>
+
+                <!-- Avatar -->
+                <div class="relative shrink-0">
+                    <div class="w-24 h-24 rounded-2xl bg-gradient-to-tr @_ui.AvatarGradient shadow-xl flex items-center justify-center text-white text-3xl font-black font-outfit border-4 border-white">
+                        @initials
+                    </div>
+                </div>
+
+                <!-- Profile Info -->
+                <div class="flex-1 text-center md:text-left min-w-0 z-10">
+                    <div class="flex flex-col md:flex-row md:items-center gap-2 mb-2">
+                        <h1 class="text-3xl font-black text-foreground tracking-tight truncate">@_user.UserName</h1>
+                        <span class="badge @_ui.BadgeClass px-2 py-0.5 uppercase tracking-widest text-[9px] font-black w-fit mx-auto md:mx-0">
+                            @_user.Role
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs font-semibold text-muted-foreground">
+                        <div class="flex items-center gap-1.5 opacity-60">
+                            <i data-lucide="mail" class="w-3.5 h-3.5"></i> @_user.Email
+                        </div>
+                        <div class="flex items-center gap-1.5 opacity-60">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Joined @_ui.JoinedDate
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="flex gap-2 z-10">
+                    <button class="p-2.5 rounded-xl bg-muted/20 border border-border/40 text-muted-foreground hover:bg-white hover:text-primary transition-all"
+                            @onclick="OpenEditProfileModal" title="Edit Profile">
+                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+                    <button class="p-2.5 rounded-xl bg-muted/20 border border-border/40 text-muted-foreground hover:bg-white hover:text-destructive transition-all"
+                            @onclick="() => _showDeactivateModal = true" title="Deactivate Account">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Primary Information -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Account & Role Details -->
+                <div class="pos-card p-6 bg-white/60 border-border/40 shadow-sm animate-slide-up">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6 flex items-center gap-2">
+                        <i data-lucide="user" class="w-3 h-3"></i> Profile Details
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-10">
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Full Name</p>
+                            <p class="text-sm font-bold text-foreground">@_user.UserName</p>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Email Address</p>
+                            <p class="text-sm font-bold text-foreground">@_user.Email</p>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Access Role</p>
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="@_ui.Icon" class="w-3.5 h-3.5 @_ui.RoleColorClass"></i>
+                                <span class="text-sm font-bold text-foreground">@_user.Role</span>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">System Identifier</p>
+                            <p class="text-[11px] font-mono text-muted-foreground truncate">@_user.Id</p>
+                        </div>
+                    </div>
+
+                    <!-- Conditional Section: Merchant/Admin -->
+                    @if (_user.Role is "Merchant" or "Admin" or "Manager")
+                    {
+                        <div class="mt-8 pt-8 border-t border-border/20">
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6 flex items-center gap-2">
+                                <i data-lucide="building" class="w-3 h-3"></i> Merchant Association
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-10">
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Business Entity</p>
+                                    <p class="text-sm font-bold text-foreground">@(_merchantName ?? "—")</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Contact Email</p>
+                                    <p class="text-sm font-bold text-foreground">@(_merchantEmail ?? "—")</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Conditional Section: Cashier -->
+                    @if (_user.Role == "Cashier")
+                    {
+                        <div class="mt-8 pt-8 border-t border-border/20">
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6 flex items-center gap-2">
+                                <i data-lucide="store" class="w-3 h-3"></i> Branch Assignment
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-10">
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Branch Name</p>
+                                    <p class="text-sm font-bold text-foreground">@(_branchName ?? "Unassigned")</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">Location</p>
+                                    <p class="text-sm font-bold text-foreground truncate">@(_branchAddress ?? "—")</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Side Panels: Stats & Actions -->
+            <div class="space-y-6">
+                <!-- Activity Quick Stats -->
+                <div class="pos-card p-6 bg-white/60 border-border/40 shadow-sm animate-slide-up" style="animation-delay: 100ms;">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-3 h-3"></i> Performance metrics
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-muted/20 border border-border/40 rounded-2xl">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
+                                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xl font-black text-foreground">@_ui.TotalSales</p>
+                                    <p class="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Total Revenue</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Actions -->
+                <div class="pos-card p-6 bg-white/60 border-border/40 shadow-sm animate-slide-up" style="animation-delay: 200ms;">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6 flex items-center gap-2">
+                        <i data-lucide="settings" class="w-3 h-3"></i> Operations
+                    </h3>
+
+                    <div class="flex flex-col gap-2">
+                        <button class="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-all text-xs font-bold border border-primary/10"
+                                @onclick="OpenEditProfileModal">
+                            <span class="flex items-center gap-3">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary/60"></i> Edit Profile
+                            </span>
+                            <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+                        </button>
+                        
+                        <button class="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-muted/30 transition-all text-xs font-bold text-foreground"
+                                @onclick="() => _showResetPasswordModal = true">
+                            <span class="flex items-center gap-3">
+                                <i data-lucide="key" class="w-3.5 h-3.5 text-muted-foreground/40"></i> Refresh Password
+                            </span>
+                            <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+                        </button>
+
+                        @if (_user.Role == "Cashier")
+                        {
+                            <button class="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-muted/30 transition-all text-xs font-bold text-foreground"
+                                    @onclick="OpenAssignBranchModal">
+                                <span class="flex items-center gap-3">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-muted-foreground/40"></i> Shift Branch
+                                </span>
+                                <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+                            </button>
+                        }
+
+                        <button class="w-full flex items-center justify-between px-4 py-3 mt-2 rounded-xl bg-destructive/5 text-destructive hover:bg-destructive/10 transition-all text-xs font-bold border border-destructive/10"
+                                @onclick="() => _showDeactivateModal = true">
+                            <span class="flex items-center gap-3">
+                                <i data-lucide="user-minus" class="w-3.5 h-3.5 text-destructive/60"></i> Deactivate
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Action Modals --- -->
+
+        <!-- Edit Profile Modal -->
+        @if (_showEditModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 rounded-3xl shadow-2xl border border-border/40 w-full max-w-sm p-8 animate-scale-up space-y-6">
+                    <div class="space-y-1">
+                        <h3 class="text-xl font-black text-foreground tracking-tight">Update Profile</h3>
+                        <p class="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Personal Identification</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Full Name</label>
+                            <input type="text" @bind="_editUserName" placeholder="Display Name"
+                                   class="w-full px-4 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none font-bold transition-all"/>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
+                            <input type="email" @bind="_editEmail" placeholder="name@example.com"
+                                   class="w-full px-4 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none font-bold transition-all"/>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button class="w-full py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
+                                @onclick="HandleEditProfile" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting) { <div class="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white"></div> }
+                            Apply Changes
+                        </button>
+                        <button class="w-full py-3 text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-all"
+                                @onclick='() => _showEditModal = false' disabled="@_isActionSubmitting">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Reset Password Modal -->
+        @if (_showResetPasswordModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 rounded-3xl shadow-2xl border border-border/40 w-full max-w-sm p-8 animate-scale-up space-y-6">
+                    <div class="space-y-1">
+                        <h3 class="text-xl font-black text-foreground tracking-tight">Security Refresh</h3>
+                        <p class="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Password Reset Flow</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">New Security Key</label>
+                            <input type="password" @bind="_newPassword" placeholder="Minimum 8 characters"
+                                   class="w-full px-4 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none font-bold transition-all"/>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Verify Key</label>
+                            <input type="password" @bind="_confirmPassword" placeholder="Repeat password"
+                                   class="w-full px-4 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none font-bold transition-all"/>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button class="w-full py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
+                                @onclick="HandleResetPassword" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting) { <div class="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white"></div> }
+                            Update Security Key
+                        </button>
+                        <button class="w-full py-3 text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-all"
+                                @onclick='() => _showResetPasswordModal = false' disabled="@_isActionSubmitting">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Reassign Branch Modal -->
+        @if (_showReassignModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 rounded-3xl shadow-2xl border border-border/40 w-full max-w-sm p-8 animate-scale-up space-y-6">
+                    <div class="space-y-1">
+                        <h3 class="text-xl font-black text-foreground tracking-tight">Assignment</h3>
+                        <p class="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Branch Relocation</p>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Target Branch</label>
+                        <div class="relative group">
+                            <select @bind="_selectedBranchId"
+                                    class="w-full px-4 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none font-bold appearance-none cursor-pointer transition-all">
+                                <option value="">Select location...</option>
+                                @if (_branches != null)
+                                {
+                                    @foreach (var b in _branches)
+                                    {
+                                        <option value="@b.Id.ToString()">@b.Name</option>
+                                    }
+                                }
+                            </select>
+                            <i data-lucide="chevron-down" class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none group-hover:text-primary transition-colors"></i>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button class="w-full py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
+                                @onclick="HandleReassignBranch" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting) { <div class="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white"></div> }
+                            Confirm Transfer
+                        </button>
+                        <button class="w-full py-3 text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-all"
+                                @onclick='() => _showReassignModal = false' disabled="@_isActionSubmitting">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Deactivate Modal -->
+        @if (_showDeactivateModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 rounded-3xl shadow-2xl border border-border/40 w-full max-w-sm p-8 animate-scale-up space-y-6">
+                    <div class="space-y-1">
+                        <h3 class="text-xl font-black text-destructive tracking-tight">Access Revocation</h3>
+                        <p class="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Deactivation Protocol</p>
+                    </div>
+
+                    <div class="p-4 bg-destructive/5 border border-destructive/10 rounded-2xl">
+                        <p class="text-xs font-bold text-destructive/80 leading-relaxed text-center">
+                            Revoking access for <span class="text-destructive font-black">@_user.UserName</span> will immediately invalidate all active sessions and permissions.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button class="w-full py-3 bg-destructive text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-destructive/20 hover:shadow-destructive/40 transition-all flex items-center justify-center gap-2"
+                                @onclick="HandleDeactivateAccount" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting) { <div class="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white"></div> }
+                            Revoke Access
+                        </button>
+                        <button class="w-full py-3 text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-all"
+                                @onclick='() => _showDeactivateModal = false' disabled="@_isActionSubmitting">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string UserId { get; set; } = "";
+    [Parameter] public string MerchantId { get; set; } = "";
+    
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private User? _user;
+    private DetailUI _ui = new();
+
+    // --- Action Modal State ---
+    private bool _showEditModal = false;
+    private bool _showResetPasswordModal = false;
+    private bool _showReassignModal = false;
+    private bool _showDeactivateModal = false;
+
+    // Form inputs
+    private string _editUserName = "";
+    private string _editEmail = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private string _selectedBranchId = "";
+    private List<Branch>? _branches;
+
+    private bool _isActionSubmitting = false;
+
+    // Simulated related data
+    private string? _merchantName;
+    private string? _merchantEmail;
+    private string? _branchName;
+    private string? _branchAddress;
+
+    private class DetailUI
+    {
+        public string BadgeClass { get; set; } = "bg-muted text-muted-foreground";
+        public string Icon { get; set; } = "user";
+        public string AvatarGradient { get; set; } = "from-slate-400 to-slate-500";
+        public string BannerGradient { get; set; } = "from-slate-400 to-slate-600";
+        public string RoleColorClass { get; set; } = "text-muted-foreground";
+        public bool IsActive { get; set; }
+        public string TotalSales { get; set; } = "—";
+        public string ShiftToday { get; set; } = "—";
+        public string JoinedDate { get; set; } = "—";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"/api/users/{UserId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load user details.");
+                return;
+            }
+
+            _user = await response.Content.ReadFromJsonAsync<User>();
+            if (_user == null)
+            {
+                await Notification.ShowError("User not found.");
+                return;
+            }
+
+            // Set UI based on role
+            _ui = _user.Role switch
+            {
+                "Admin" => new DetailUI
+                {
+                    BadgeClass = "badge-primary", Icon = "shield-check",
+                    AvatarGradient = "from-primary to-purple-500",
+                    BannerGradient = "from-primary via-purple-600 to-indigo-700",
+                    RoleColorClass = "text-primary", IsActive = true,
+                },
+                "Cashier" => new DetailUI
+                {
+                    BadgeClass = "badge-success", Icon = "calculator",
+                    AvatarGradient = "from-success to-emerald-400",
+                    BannerGradient = "from-emerald-500 via-teal-500 to-green-600",
+                    RoleColorClass = "text-success", IsActive = true,
+                },
+                "Merchant" or "Manager" => new DetailUI
+                {
+                    BadgeClass = "badge-warning", Icon = "briefcase",
+                    AvatarGradient = "from-warning to-yellow-400",
+                    BannerGradient = "from-amber-500 via-orange-500 to-yellow-600",
+                    RoleColorClass = "text-warning", IsActive = false,
+                },
+                _ => new DetailUI()
+            };
+
+            // Simulate related data based on role
+            if (_user.Role is "Admin" or "Merchant" or "Manager")
+            {
+                _merchantName = _user.Merchant?.Name ?? "—";
+                _merchantEmail = _user.Merchant?.ContactEmail ?? "—";
+            }
+
+            if (_user.Role == "Cashier")
+            {
+                _branchName = _user.Branch?.Name;
+                _branchAddress = _user.Branch?.Address;
+            }
+
+            _editUserName = _user.UserName;
+            _editEmail = _user.Email;
+            _ui.TotalSales = _user.TotalSales;
+            _ui.JoinedDate = $"{_user.JoinedDate:yyyy MM}";
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"An error occurred loading profile: {ex.Message}");
+        }
+    }
+
+    private void OpenEditProfileModal()
+    {
+        _editUserName = _user?.UserName ?? "";
+        _editEmail = _user?.Email ?? "";
+        _showEditModal = true;
+
+        // Re-init icons just in case any dynamic triggers were missed
+        _ = ReinitIcons();
+    }
+
+    private async Task HandleEditProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_editUserName) || string.IsNullOrWhiteSpace(_editEmail)) return;
+        _isActionSubmitting = true;
+
+        try
+        {
+            if (_user != null)
+            {
+                _user.UserName = _editUserName;
+                _user.Email = _editEmail;
+            }
+
+            var response = await Http.PutAsync($"/api/users/{UserId}", JsonContent.Create(_user));
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Failed to update profile: {error}");
+                _isActionSubmitting = false;
+                return;
+            }
+
+            await Notification.ShowSuccess("Profile updated successfully!");
+            _showEditModal = false;
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error updating profile: {ex.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenAssignBranchModal()
+    {
+        if (_user is { Merchant: not null })
+        {
+            try
+            {
+                var response = await Http.GetAsync($"/api/branches?merchantId={_user.Merchant.Id}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    await Notification.ShowError("Failed to load available branches.");
+                    return;
+                }
+                
+                var result = await response.Content.ReadFromJsonAsync<PagedResult<Branch>>();
+                _branches = result?.Data;
+                _showReassignModal = true;
+                _ = ReinitIcons();
+            }
+            catch (Exception ex)
+            {
+                await Notification.ShowError($"Error loading branches: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task HandleResetPassword()
+    {
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword != _confirmPassword)
+        {
+            await Notification.ShowWarning("Passwords do not match.");
+            return;
+        }
+        
+        _isActionSubmitting = true;
+
+        try
+        {
+            var response = await Http.PostAsync(
+                $"/api/users/{UserId}/reset-password",
+                JsonContent.Create(new
+                {
+                    NewPassword = _newPassword,
+                    ConfirmPassword = _confirmPassword
+                })
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Failed to reset password: {error}");
+                _isActionSubmitting = false;
+                return;
+            }
+
+            await Notification.ShowSuccess("Password reset successfully!");
+            _showResetPasswordModal = false;
+            _newPassword = _confirmPassword = "";
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error resetting password: {ex.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+        }
+    }
+
+    private async Task HandleReassignBranch()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedBranchId)) return;
+        _isActionSubmitting = true;
+
+        try
+        {
+            var response = await Http.PostAsync(
+                $"/api/users/{UserId}/reassign-branch",
+                JsonContent.Create(new { BranchId = _selectedBranchId })
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Failed to reassign branch: {error}");
+                _isActionSubmitting = false;
+                return;
+            }
+
+            await Notification.ShowSuccess("Branch reassigned successfully!");
+            _showReassignModal = false;
+            // Optionally reload user data to reflect changes
+            await OnInitializedAsync();
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error during reassignment: {ex.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+        }
+    }
+
+    private async Task HandleDeactivateAccount()
+    {
+        _isActionSubmitting = true;
+        
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/users/{UserId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Failed to deactivate account: {error}");
+                _isActionSubmitting = false;
+                return;
+            }
+
+            await Notification.ShowSuccess("Account deactivated successfully.");
+            Navigation.NavigateTo("/users");
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error during deactivation: {ex.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+            _showDeactivateModal = false;
+        }
+    }
+    
+    private async Task ReinitIcons()
+    {
+        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/users");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}
