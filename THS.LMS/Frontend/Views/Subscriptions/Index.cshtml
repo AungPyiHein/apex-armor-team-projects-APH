@@ -1,0 +1,106 @@
+@model Frontend.Models.SubscriptionsViewModel
+
+@{
+    ViewData["Title"] = "Memberships";
+}
+
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-slate-900">Memberships</h1>
+    <p class="text-slate-600 mt-1">Available membership plans in the system</p>
+</div>
+
+<!-- Available Plans Section -->
+<div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        @foreach (var plan in Model.AvailableMemberships)
+        {
+            <div class="card flex flex-col h-full relative transition duration-200 hover:shadow-md">
+                <div class="p-6 border-b border-slate-100 flex-grow">
+                    <h3 class="text-lg font-bold text-slate-900 uppercase tracking-wider mb-2">@plan.Type</h3>
+                    <div class="flex items-baseline gap-1 mb-4">
+                        <span class="text-3xl font-extrabold text-slate-900">@plan.Price.ToString("N0") <span class="text-lg text-slate-500 font-medium">MMK</span></span>
+                        <span class="text-slate-500 font-medium">/ @(plan.DurationMonths == 1 ? "month" : $"{plan.DurationMonths} months")</span>
+                    </div>
+                    
+                    <ul class="space-y-3 mt-6">
+                        <li class="flex gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="text-slate-600">Borrow up to <span class="font-bold text-slate-900">@plan.MaxBooks books</span> at a time</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="text-slate-600">Keep books for <span class="font-bold text-slate-900">@plan.BorrowingDays days</span></span>
+                        </li>
+                        <li class="flex gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="text-slate-600">Full catalog access</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="p-4 bg-slate-50 mt-auto text-center border-t border-slate-100">
+                    <span class="text-xs text-slate-500 font-medium uppercase tracking-widest">System Plan</span>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Active Subscriptions Section -->
+<div class="mt-12 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Active User Subscriptions</h2>
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-900 text-white">@Model.ActiveSubscriptions.Count Total</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">User</th>
+                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Plan Type</th>
+                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Start Date</th>
+                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Expiry Date</th>
+                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-slate-200">
+                @if (!Model.ActiveSubscriptions.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm italic">
+                            No active subscriptions found in the system.
+                        </td>
+                    </tr>
+                }
+                @foreach (var sub in Model.ActiveSubscriptions)
+                {
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-bold text-slate-900">@sub.UserName</div>
+                            <div class="text-xs text-slate-400">@sub.UserEmail</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-900 text-white tracking-tight">@sub.MembershipType</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">@sub.StartDate.ToString("MMM dd, yyyy")</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold">@sub.ExpiryDate.ToString("MMM dd, yyyy")</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if (sub.IsActive && !sub.IsExpired)
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                            }
+                            else if (sub.IsExpired)
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Expired</span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
