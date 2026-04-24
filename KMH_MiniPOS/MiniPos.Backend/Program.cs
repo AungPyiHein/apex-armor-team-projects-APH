@@ -1,4 +1,5 @@
 using System.Text;
+using System.Net.Http.Headers;
 using Database.EfAppDbContextModels;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +16,8 @@ using MiniPos.Backend.Features.Orders;
 using MiniPos.Backend.Features.Products;
 using MiniPos.Backend.Features.Profile;
 using MiniPos.Backend.Features.Users;
+using MiniPos.Backend.Features.Customers;
+using MiniPos.Backend.Features.Loyalties;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -83,10 +86,21 @@ builder.Services.AddScoped<IBranchInventoryService, BranchInventoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ILoyaltyService, LoyaltyService>();
+
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
-// builder.Services.AddScoped<IHttpContextAccessor, HttpContextAccessor > ();
+
+builder.Services.Configure<LoyaltyEngineOptions>(builder.Configuration.GetSection("LoyaltyEngine"));
+builder.Services.AddHttpClient<LoyaltyEngineApiClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LoyaltyEngineOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.TryAddWithoutValidation("x-system-id", options.SystemId);
+});
 
 var app = builder.Build();
 

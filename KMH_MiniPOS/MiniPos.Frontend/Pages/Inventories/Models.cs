@@ -12,7 +12,8 @@ public class Merchant
     public string? Name { get; set; }
 }
 
-public class Branch {
+public class Branch
+{
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
 }

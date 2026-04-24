@@ -1,14 +1,15 @@
 @page "/customers"
 @using MiniPos.Frontend.Shared.Types
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
-<PageTitle>Client Directory - MiniPOS</PageTitle>
+<PageTitle>Customers - MiniPOS</PageTitle>
 
-<PageHeader Title="Client Directory" 
-            Subtitle="Maintain detailed customer profiles and loyalty"
-            SearchPlaceholder="Search customers..."
-            @bind-SearchTerm="_searchTerm"
+<PageHeader Title="Customers" 
+            Subtitle="Manage your customer directory and relationship"
+            SearchPlaceholder="Search by name, email or phone..."
+            @bind-SearchTerm="SearchTerm"
             ShowViewToggle="false"
-            OnSearch="LoadData">
+            OnSearch="@HandleSearchTermChanged">
     <Filters>
         <div class="relative group">
             <i data-lucide="store"
@@ -26,14 +27,14 @@
         </div>
     </Filters>
     <Actions>
-        <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all" @onclick="GoToAddCustomer">
+        <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all active:scale-95" @onclick="GoToAddCustomer">
             <i data-lucide="plus" class="w-5 h-5 font-black"></i>
             <span class="font-black uppercase tracking-tight text-sm">Add Customer</span>
         </button>
     </Actions>
 </PageHeader>
 
-<div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-0">
+<div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-[500px]">
     @if (_isLoading && (_pagedCustomers == null || !_pagedCustomers.Data.Any()))
     {
         <div class="flex-1 flex flex-col items-center justify-center p-24">
@@ -47,30 +48,29 @@
             <div class="w-20 h-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
                 <i data-lucide="user-x" class="w-10 h-10 text-muted-foreground/30"></i>
             </div>
-            <h3 class="text-xl font-black text-foreground">No clients found</h3>
-            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Add your first customer to start tracking loyalty.</p>
+            <h3 class="text-xl font-black text-foreground">No customers found</h3>
+            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Start building your customer base to track sales and loyalty.</p>
         </div>
     }
     else
     {
         <div class="flex-1 overflow-auto custom-scrollbar">
-            <table class="w-full text-left border-collapse table-fixed lg:table-auto">
+            <table class="w-full text-left border-collapse">
                 <thead class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-border/10">
                     <tr>
-                        <th class="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-[35%]">Customer</th>
-                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Contact</th>
-                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Location</th>
-                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Loyalty</th>
+                        <th class="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-[30%]">Customer</th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Contact Details</th>
+                        <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Orders</th>
                         <th class="pr-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right w-32">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border/5">
                 @foreach (var customer in _pagedCustomers.Data)
                 {
-                    <tr class="group hover:bg-white/40 transition-all cursor-pointer">
+                    <tr class="group hover:bg-white/40 transition-all cursor-pointer" @onclick="() => GoToDetails(customer.Id)">
                         <td class="pl-8 py-4">
                             <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
+                                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                                     <i data-lucide="user" class="w-5 h-5"></i>
                                 </div>
                                 <div class="min-w-0">
@@ -80,23 +80,26 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="flex flex-col">
-                                <span class="text-sm font-bold text-foreground">@customer.PhoneNumber</span>
-                                <span class="text-[11px] text-muted-foreground font-medium">@customer.Email</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-2 text-xs font-bold text-foreground/70">
-                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-muted-foreground/40"></i>
-                                <span class="truncate">@customer.Address</span>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex items-center gap-2 text-sm font-bold text-foreground">
+                                    <i data-lucide="phone" class="w-3.5 h-3.5 text-muted-foreground/50"></i>
+                                    <span>@(string.IsNullOrEmpty(customer.PhoneNumber) ? "N/A" : customer.PhoneNumber)</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
+                                    <i data-lucide="mail" class="w-3.5 h-3.5 text-muted-foreground/50"></i>
+                                    <span>@(string.IsNullOrEmpty(customer.Email) ? "N/A" : customer.Email)</span>
+                                </div>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="px-3 py-1 bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/10">Member</span>
+                            <span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-200">
+                                @customer.OrderCount Orders
+                            </span>
                         </td>
                         <td class="pr-8 py-4 text-right">
-                            <button class="w-9 h-9 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90 ml-auto">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            <button class="w-9 h-9 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90 ml-auto"
+                                    @onclick:stopPropagation="true" @onclick="() => GoToDetails(customer.Id)">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
                             </button>
                         </td>
                     </tr>
@@ -105,11 +108,15 @@
             </table>
         </div>
 
-        <Pagination CurrentPage="_currentPage" 
+        <Pagination CurrentPage="@CurrentPage" 
                     TotalPages="@(_pagedCustomers?.TotalPages ?? 1)" 
                     TotalCount="@(_pagedCustomers?.TotalCount ?? 0)"
-                    PageSize="10"
-                    PageChanged="HandlePageChanged" />
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedCustomers?.TotalPages ?? 1)" />
     }
 </div>
 
@@ -118,11 +125,9 @@
     [Inject] private HttpClient Http { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    private PagedResult<Customer>? _pagedCustomers;
-    private List<Merchant> _merchants = new();
+    private PagedResult<CustomerDto>? _pagedCustomers;
+    private List<MerchantDto> _merchants = new();
     private Guid? _selectedMerchantId;
-    private string _searchTerm = "";
-    private int _currentPage = 1;
     private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -135,7 +140,7 @@
     {
         try
         {
-            var result = await Http.GetFromJsonAsync<PagedResult<Merchant>>("api/merchants?pageSize=100");
+            var result = await Http.GetFromJsonAsync<PagedResult<MerchantDto>>("api/merchants?pageSize=100");
             _merchants = result?.Data ?? new();
         }
         catch (Exception ex)
@@ -150,11 +155,11 @@
         StateHasChanged();
         try
         {
-            var url = $"api/customers?page={_currentPage}&pageSize=10";
-            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
+            var url = $"api/customers?pageNumber={CurrentPage}&pageSize={PageSize}";
+            if (!string.IsNullOrEmpty(SearchTerm)) url += $"&searchTerm={Uri.EscapeDataString(SearchTerm)}";
             if (_selectedMerchantId.HasValue) url += $"&merchantId={_selectedMerchantId.Value}";
 
-            _pagedCustomers = await Http.GetFromJsonAsync<PagedResult<Customer>>(url);
+            _pagedCustomers = await Http.GetFromJsonAsync<PagedResult<CustomerDto>>(url);
         }
         catch (Exception ex)
         {
@@ -168,13 +173,8 @@
         }
     }
 
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadData();
-    }
-
     private void GoToAddCustomer() => Nav.NavigateTo("/customers/add");
+    private void GoToDetails(Guid id) => Nav.NavigateTo($"/customers/{id}");
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -182,5 +182,18 @@
         {
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
+    }
+
+    private async Task HandleSearchTermChanged(string term)
+    {
+        SearchTerm = term;
+        CurrentPage = 1;
+        await LoadData();
+    }
+
+    private new async Task HandlePageChanged(int page)
+    {
+        CurrentPage = page;
+        await LoadData();
     }
 }

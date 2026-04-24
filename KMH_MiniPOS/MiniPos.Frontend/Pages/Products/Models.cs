@@ -21,8 +21,8 @@ class Branch
 class Product
 {
     public Guid Id { get; set; }
-    public string? Name { get; set; } 
-    public string? Sku { get; set; } 
+    public string? Name { get; set; }
+    public string? Sku { get; set; }
     public decimal Price { get; set; }
     public DateTime CreatedAt { get; set; }
     public Category? Category { get; set; }

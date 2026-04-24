@@ -1,15 +1,16 @@
 @page "/categories"
 @using MiniPos.Frontend.Shared.Types
 @inject NotificationService Notification
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
 <PageTitle>Categories - MiniPOS</PageTitle>
 
 <PageHeader Title="Categories"
             Subtitle="Organize your menu and product catalog effectively"
             SearchPlaceholder="Search categories..."
-            @bind-SearchTerm="_searchTerm"
+            @bind-SearchTerm="SearchTerm"
             @bind-ViewMode="_viewMode"
-            OnSearch="LoadData">
+            OnSearch="@HandleSearchTermChanged">
     <Filters>
         <div class="relative group">
             <i data-lucide="store"
@@ -66,9 +67,9 @@
 else
 {
     var filteredCategories = _pagedCategories.Data
-        .Where(c => string.IsNullOrEmpty(_searchTerm) ||
-                    c.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                    (c.Description != null && c.Description.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)))
+        .Where(c => string.IsNullOrEmpty(SearchTerm) ||
+                    c.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (c.Description != null && c.Description.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)))
         .ToList();
 
     @if (_viewMode == "grid")
@@ -200,11 +201,15 @@ else
                 </tbody>
             </table>
         </div>
-        <Pagination CurrentPage="_currentPage"
+        <Pagination CurrentPage="@CurrentPage"
                     TotalPages="@(_pagedCategories?.TotalPages ?? 1)"
                     TotalCount="@(_pagedCategories?.TotalCount ?? 0)"
-                    PageSize="_pageSize"
-                    PageChanged="HandlePageChanged"/>
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedCategories?.TotalPages ?? 1)"/>
     }
 }
 
@@ -224,17 +229,18 @@ else
     }
 
     private PagedResult<CategoryListResponse>? _pagedCategories;
-    private string _searchTerm = "";
     private string _viewMode = "grid";
     private List<Merchant> _merchants = new();
     private Guid? _selectedMerchantId;
 
-    private int _currentPage = 1;
-    private readonly int _pageSize = 15;
-
     // Alert state
     private string _alertMessage = "";
     private string _alertType = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -246,7 +252,8 @@ else
     {
         try
         {
-            var response = await Http.GetAsync("api/merchants?pageSize=100");
+            var url = $"api/merchants";
+            var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
                 await Notification.ShowError("Failed to load merchants.");
@@ -274,18 +281,18 @@ else
             return;
         }
 
-        _pagedCategories = null;
-        StateHasChanged();
-
         try
         {
-            var url = $"api/categories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId}";
-            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
-
+            var url = $"api/categories" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
+                      $"&merchantId={_selectedMerchantId}";
+            
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
-                await Notification.ShowError("Failed to load categories.");
+                Notification.ShowError("Failed to load categories.");
                 _pagedCategories = null;
                 return;
             }
@@ -294,20 +301,14 @@ else
         }
         catch (Exception ex)
         {
-            await ShowAlert($"Error loading categories: {ex.Message}", "error");
-            _pagedCategories = new PagedResult<CategoryListResponse> { Data = new List<CategoryListResponse>() };
+            Notification.ShowError($"Error loading categories: {ex.Message}", "error");
+            _pagedCategories = null;
         }
         finally
         {
             StateHasChanged();
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
-    }
-
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadData();
     }
 
     private CategoryUI GetCategoryUI(CategoryListResponse category)
@@ -383,16 +384,6 @@ else
     private void GoToAddCategory()
     {
         Navigation.NavigateTo("/categories/add");
-    }
-
-    private async Task ShowAlert(string message, string type = "success")
-    {
-        _alertMessage = message;
-        _alertType = type;
-        StateHasChanged();
-        await JSRuntime.InvokeVoidAsync("initIcons");
-        _alertMessage = "";
-        StateHasChanged();
     }
 
     private void Clear()

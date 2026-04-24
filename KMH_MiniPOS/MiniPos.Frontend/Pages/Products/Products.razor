@@ -1,15 +1,19 @@
 @page "/products"
 @inject NotificationService Notification
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 @using MiniPos.Frontend.Shared.Types
 
 <PageTitle>Products - MiniPOS</PageTitle>
 
-<PageHeader Title="Product Catalog"
-            Subtitle="Centrally manage SKUs, pricing, and master catalog"
-            SearchPlaceholder="Quick search..."
-            @bind-SearchTerm="_searchTerm"
-            @bind-ViewMode="_viewMode"
-            OnSearch="LoadData">
+<PageHeader
+    Title="Product Catalog"
+    Subtitle="Centrally manage SKUs, pricing, and master catalog"
+    SearchPlaceholder="Quick search..."
+    @bind-SearchTerm="SearchTerm"
+    @bind-ViewMode="_viewMode"
+    OnSearch="@HandleSearchTermChanged"
+>
+
     <Filters>
         <div class="relative group">
             <i data-lucide="filter"
@@ -41,6 +45,7 @@
                class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
         </div>
     </Filters>
+
     <Actions>
         <button
             class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
@@ -49,6 +54,7 @@
             <span class="font-black uppercase tracking-tight text-sm">Add Product</span>
         </button>
     </Actions>
+
 </PageHeader>
 
 <!-- Floating Alert Box -->
@@ -115,7 +121,7 @@ else
                         <div class="absolute top-4 left-4">
                                 <span
                                     class="badge bg-white/90 backdrop-blur-sm @ui.BadgeClass text-[10px] font-black uppercase tracking-widest shadow-sm rounded-full px-2.5 py-1 border border-border/20">
-                                    @(GetCategoryName(product.Category.Id))
+                                    @product.Category.Name)
                                 </span>
                         </div>
                     </div>
@@ -202,7 +208,7 @@ else
                         <td class="px-5 py-2.5">
                                         <span
                                             class="badge @ui.BgIcon @ui.TextColor text-[9px] font-black uppercase tracking-widest border-transparent py-1 px-2.5 rounded-lg shadow-sm shadow-black/5">
-                                            @(GetCategoryName(product.Category.Id))
+                                            @product.Category.Name
                                         </span>
                         </td>
                         <td class="px-5 py-2.5 text-right">
@@ -222,11 +228,15 @@ else
                 </tbody>
             </table>
         </div>
-        <Pagination CurrentPage="_currentPage"
+        <Pagination CurrentPage="@CurrentPage"
                     TotalPages="@(_pagedProducts?.TotalPages ?? 1)"
                     TotalCount="@(_pagedProducts?.TotalCount ?? 0)"
-                    PageSize="_pageSize"
-                    PageChanged="HandlePageChanged"/>
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedProducts?.TotalPages ?? 1)"/>
     }
 }
 
@@ -247,27 +257,24 @@ else
     }
 
     private PagedResult<Product>? _pagedProducts;
-    private Dictionary<Guid, string> _categoryNames = new();
     private List<Category> _categories = new();
     private List<Merchant> _merchants = new();
-    private string _searchTerm = "";
-    private string _viewMode = "grid";
     private Guid? _selectedCategoryId;
+    private string _viewMode = "grid";
     private Guid? _selectedMerchantId;
-
-    private int _currentPage = 1;
-    private int _pageSize = 12;
 
     // Alert state
     private string _alertMessage = "";
     private string _alertType = "success";
 
-    private string GetCategoryName(Guid id) => _categoryNames.TryGetValue(id, out var name) ? name : "General";
-
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
 
     private ProductUI GetProductUI(Product product)
     {
-        var categoryName = GetCategoryName(product.Category.Id);
+        var categoryName = product.Category.Name;
         var hash = Math.Abs(categoryName.GetHashCode());
 
         var icons = new[] { "folder", "bookmark", "box", "archive", "layers", "tag", "star", "package", "coffee", "utensils", "cup-soda", "ice-cream", "shopping-bag", "leaf", "croissant" };
@@ -302,33 +309,37 @@ else
         }
         catch (Exception ex)
         {
-            await Notification.ShowError($"Error during initialization: {ex.Message}", "error");
+            Notification.ShowError($"Error during initialization: {ex.Message}", "error");
         }
     }
 
     private async Task LoadData()
     {
-        var url = $"api/products?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId}";
-        if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
+        var url = $"api/products" +
+                  $"?searchTerm={SearchTerm}" +
+                  $"&pageNumber={CurrentPage}" +
+                  $"&pageSize={PageSize}" +
+                  $"&merchantId={_selectedMerchantId}";
+
         if (_selectedCategoryId.HasValue)
-            url += $"&categoryId={_selectedCategoryId}";
+            url += $"&categoryId={_selectedCategoryId.Value}";
 
         var response = await Http.GetAsync(url);
+
         if (response.IsSuccessStatusCode)
         {
             _pagedProducts = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
-            StateHasChanged();
-            await JSRuntime.InvokeVoidAsync("initIcons");
         }
         else
         {
-            await Notification.ShowError("Failed to load products.");
+            Notification.ShowError("Failed to load products.");
+            _pagedProducts = null;
         }
     }
 
     private async Task LoadCategories()
     {
-        var url = $"api/categories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId.Value}";
+        var url = $"api/categories?merchantId={_selectedMerchantId}";
         var response = await Http.GetAsync(url);
         if (response.IsSuccessStatusCode)
         {
@@ -336,11 +347,11 @@ else
             if (result != null)
             {
                 _categories = result.Data;
-                _categoryNames = result.Data.ToDictionary(c => c.Id, c => c.Name ?? "Unknown");
             }
-        }    else
+        }
+        else
         {
-            await Notification.ShowError("Failed to load categories.");
+            Notification.ShowError("Failed to load categories.");
         }
     }
 
@@ -362,12 +373,6 @@ else
         }
     }
 
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadData();
-    }
-    
     private void GoToProductDetail(Guid id)
     {
         Navigation.NavigateTo($"/products/{id}");

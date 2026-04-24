@@ -1,0 +1,400 @@
+@page "/loyalty"
+@inject NotificationService Notification
+
+<PageTitle>Loyalty - MiniPOS</PageTitle>
+
+<div class="max-w-6xl mx-auto pb-12 animate-fade-in">
+    <PageHeader Title="Loyalty"
+                Subtitle="Lookup points, rewards, and redemption for a customer"
+                SearchPlaceholder="Customer phone number..."
+                @bind-SearchTerm="_customerPhoneNumber"
+                ShowViewToggle="false"
+                OnSearch="@HandleLookup">
+        <Actions>
+            <button
+                class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all active:scale-95"
+                @onclick="HandleLookupClick" disabled="@_isLoading">
+                @if (_isLoading)
+                {
+                    <div class="animate-spin rounded-full h-5 w-5 border-2 border-white/20 border-t-white"></div>
+                }
+                else
+                {
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                }
+                <span class="font-black uppercase tracking-tight text-sm">Lookup</span>
+            </button>
+        </Actions>
+    </PageHeader>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+        <!-- Account -->
+        <div
+            class="lg:col-span-1 pos-card bg-white/60 backdrop-blur-xl shadow-xl border-white/60 p-6 flex flex-col gap-5 relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+
+            <div class="relative z-10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                        <i data-lucide="award" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Account</p>
+                        <p class="text-sm font-black text-foreground truncate max-w-55">@(_account?.Id)</p>
+                    </div>
+                </div>
+            </div>
+
+            @if (_account == null)
+            {
+                <div class="relative z-10 text-sm text-muted-foreground font-medium">
+                    Enter a CustomerId and click Lookup.
+                </div>
+            }
+            else
+            {
+                <div class="relative z-10 grid grid-cols-2 gap-4">
+                    <div class="bg-white/70 border border-border/40 rounded-2xl p-4">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                            Balance</p>
+                        <p class="text-2xl font-black text-primary font-outfit">@_account.Royalty?.CurrentPoint</p>
+                    </div>
+                    <div class="bg-white/70 border border-border/40 rounded-2xl p-4">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tier</p>
+                        <p class="text-xl font-black text-foreground font-outfit">@_account.Royalty?.Tier</p>
+                    </div>
+                    <div class="col-span-2 bg-slate-50/80 border border-border/40 rounded-2xl p-4">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Lifetime
+                            Points</p>
+                        <p class="text-xl font-black text-foreground font-outfit">@_account.Royalty?.LifetimePoints</p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Rewards -->
+        <div class="lg:col-span-2 pos-card bg-white/60 backdrop-blur-xl shadow-xl border-white/60 overflow-hidden">
+            <div class="p-6 border-b border-border/10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200">
+                        <i data-lucide="gift" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-black text-foreground">Active Rewards</h2>
+                        <p class="text-xs text-muted-foreground font-medium">Redeem points via backend proxy</p>
+                    </div>
+                </div>
+
+                <button
+                    class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 h-10 flex items-center gap-2"
+                    @onclick="LoadRewards" disabled="@_isRewardsLoading">
+                    @if (_isRewardsLoading)
+                    {
+                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-border/30 border-t-primary"></div>
+                    }
+                    else
+                    {
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    }
+                    <span class="font-bold text-xs uppercase tracking-tight">Refresh</span>
+                </button>
+            </div>
+
+            <div class="p-6">
+                @if (_rewards.Count == 0 && !_isRewardsLoading)
+                {
+                    <div class="py-16 text-center text-sm text-muted-foreground font-medium">
+                        No rewards loaded yet. Click Refresh.
+                    </div>
+                }
+                else
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach (var reward in _rewards)
+                        {
+                            var disabled = _account == null || reward.StockQuantity <= 0 || (_account.Royalty?.CurrentPoint < reward.PointCost);
+                            <div
+                                class="bg-white/70 border border-border/40 rounded-2xl p-5 flex flex-col gap-3 shadow-sm">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <h3 class="text-sm font-black text-foreground truncate font-outfit">@reward.Name</h3>
+                                        <p class="text-[11px] text-muted-foreground font-medium line-clamp-2">@reward.Description</p>
+                                    </div>
+                                    <span
+                                        class="shrink-0 px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-full border border-primary/20">
+                                        @reward.PointCost pts
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <span
+                                        class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                        Stock: @reward.StockQuantity
+                                    </span>
+
+                                    <button
+                                        class="btn btn-primary btn-sm rounded-xl px-4 h-9 shadow-lg shadow-primary/15 flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled="@disabled"
+                                        @onclick="() => ClaimReward(reward)">
+                                        <i data-lucide="badge-check" class="w-4 h-4"></i>
+                                        <span class="font-black uppercase tracking-tight text-[10px]">Claim</span>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div class="mt-8 pos-card bg-white/60 backdrop-blur-xl shadow-xl border-white/60 overflow-hidden">
+        <div class="p-6 border-b border-border/10 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200">
+                    <i data-lucide="history" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-foreground">Point History</h2>
+                    <p class="text-xs text-muted-foreground font-medium">Earn + redeem ledger</p>
+                </div>
+            </div>
+
+            <button
+                class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 h-10 flex items-center gap-2"
+                @onclick="LoadHistory" disabled="@(_account == null || _isHistoryLoading)">
+                @if (_isHistoryLoading)
+                {
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-border/30 border-t-primary"></div>
+                }
+                else
+                {
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                }
+                <span class="font-bold text-xs uppercase tracking-tight">Refresh</span>
+            </button>
+        </div>
+
+        <div class="p-6">
+            @if (_account == null)
+            {
+                <div class="py-10 text-sm text-muted-foreground font-medium">
+                    Lookup an account to view history.
+                </div>
+            }
+            else if (_pointHistory.Count == 0 && !_isHistoryLoading)
+            {
+                <div class="py-10 text-sm text-muted-foreground font-medium">
+                    No history found (or not loaded yet).
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="bg-slate-50/50">
+                            <th class="pl-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                When
+                            </th>
+                            <th class="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Event
+                            </th>
+                            <th class="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Reference
+                            </th>
+                            <th class="pr-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                                Delta
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border/5">
+                        @foreach (var row in _pointHistory.OrderByDescending(h => h.CreatedAt))
+                        {
+                            var isEarn = row.PointDelta >= 0;
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="pl-6 py-4">
+                                    <div class="flex flex-col">
+                                        <span
+                                            class="text-sm font-bold text-foreground">@row.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                                        <span
+                                            class="text-[10px] text-muted-foreground font-medium">@row.CreatedAt.ToLocalTime().ToString("hh:mm tt")</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-xs font-black text-foreground">@row.EventKey</span>
+                                    <div
+                                        class="text-[11px] text-muted-foreground font-medium line-clamp-1">@row.Description</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span
+                                        class="text-xs font-mono font-bold text-muted-foreground bg-slate-100/50 px-2 py-1 rounded">@row.ReferenceId</span>
+                                </td>
+                                <td class="pr-6 py-4 text-right">
+                                    <span
+                                        class="px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest @(isEarn ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-600 border-red-200")">
+                                        @(isEarn ? "+" : "")@row.PointDelta
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+
+    private string _customerPhoneNumber = "";
+    private bool _isLoading;
+
+    private AccountDetails? _account;
+    private List<Reward> _rewards = [];
+    private bool _isRewardsLoading;
+
+    private List<PointHistory> _pointHistory = [];
+    private bool _isHistoryLoading;
+
+    private bool _isClaiming;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRewards();
+    }
+
+    private Task HandleLookupClick()
+    {
+        return HandleLookup(_customerPhoneNumber);
+    }
+
+    private async Task HandleLookup(string? _ = null)
+    {
+        if (string.IsNullOrWhiteSpace(_customerPhoneNumber))
+        {
+            await Notification.ShowError("Please enter an customer phone).");
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _account = await Http.GetFromJsonAsync<AccountDetails>($"api/customers/lookup?phoneNo={_customerPhoneNumber}");
+            _pointHistory.Clear();
+            await LoadHistory();
+        }
+        catch (Exception ex)
+        {
+            _account = null;
+            _pointHistory.Clear();
+            await Notification.ShowError($"Lookup failed: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task LoadRewards()
+    {
+        _isRewardsLoading = true;
+        StateHasChanged();
+        try
+        {
+            var result = await Http.GetFromJsonAsync<List<Reward>>("loyalties/rewards");
+            _rewards = result ?? new List<Reward>();
+        }
+        catch (Exception ex)
+        {
+            _rewards = new List<Reward>();
+            await Notification.ShowError($"Failed to load rewards: {ex.Message}");
+        }
+        finally
+        {
+            _isRewardsLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task LoadHistory()
+    {
+        if (_account == null) return;
+
+        _isHistoryLoading = true;
+        StateHasChanged();
+        try
+        {
+            var result = await Http.GetFromJsonAsync<List<PointHistory>>($"loyalties/customers/{_account.Id}/histories");
+            _pointHistory = result ?? new List<PointHistory>();
+        }
+        catch (Exception ex)
+        {
+            _pointHistory = new List<PointHistory>();
+            await Notification.ShowError($"Failed to load history: {ex.Message}");
+        }
+        finally
+        {
+            _isHistoryLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task ClaimReward(Reward reward)
+    {
+        if (_account == null) return;
+
+        _isClaiming = true;
+        StateHasChanged();
+        try
+        {
+            var res = await Http.PostAsJsonAsync("loyalties/redemptions/claim", new ClaimRewardRequest
+            {
+                CustomerId = _account.Id,
+                RewardId = reward.Id,
+                Notes = "Redeemed from MiniPOS"
+            });
+
+            if (!res.IsSuccessStatusCode)
+            {
+                var err = await res.Content.ReadFromJsonAsync<ErrorResponse>();
+                await Notification.ShowError($"Claim failed: {err.Message}");
+                return;
+            }
+
+            await Notification.ShowSuccess("Reward claimed (pending fulfillment).");
+            await HandleLookup();
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Claim error: {ex.Message}");
+        }
+        finally
+        {
+            _isClaiming = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+}
+

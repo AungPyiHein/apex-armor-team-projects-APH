@@ -12,6 +12,13 @@ public abstract class Error
     }
 }
 
+public class CustomError:Error
+{
+    public CustomError(string code, string message) : base(code, message)
+    {
+    }
+}
+
 public class NotFoundError : Error
 {
     public NotFoundError(string code, string message) : base(code, message)
@@ -47,7 +54,7 @@ public class BadRequestError : Error
     }
 }
 
-public class UnAuthorizedError: Error
+public class UnAuthorizedError : Error
 {
     public UnAuthorizedError(string code, string message) : base(code, message)
     {

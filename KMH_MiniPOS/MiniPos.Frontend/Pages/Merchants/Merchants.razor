@@ -1,15 +1,16 @@
 @page "/merchants"
 @inject NotificationService Notification
 @using MiniPos.Frontend.Shared.Types
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
 <PageTitle>Merchants - MiniPOS</PageTitle>
 
 <PageHeader Title="Merchants" 
             Subtitle="Onboard and manage merchant business accounts"
             SearchPlaceholder="Search merchants..."
-            @bind-SearchTerm="_searchTerm"
+            @bind-SearchTerm="SearchTerm"
             ShowViewToggle="false"
-            OnSearch="LoadData">
+            OnSearch="@HandleSearchTermChanged">
     <Actions>
         <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all" @onclick="GoToAddMerchant">
             <i data-lucide="plus" class="w-5 h-5 font-black"></i>
@@ -82,11 +83,15 @@
             </div>
         </div>
 
-        <Pagination CurrentPage="_currentPage" 
+        <Pagination CurrentPage="@CurrentPage" 
                     TotalPages="@(_pagedMerchants?.TotalPages ?? 1)" 
                     TotalCount="@(_pagedMerchants?.TotalCount ?? 0)"
-                    PageSize="10"
-                    PageChanged="HandlePageChanged" />
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedMerchants?.TotalPages ?? 1)" />
     }
 </div>
 
@@ -96,9 +101,12 @@
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     private PagedResult<Merchant>? _pagedMerchants;
-    private string _searchTerm = "";
-    private int _currentPage = 1;
     private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,15 +119,18 @@
         StateHasChanged();
         try
         {
-            var url = $"api/merchants?page={_currentPage}&pageSize=10";
-            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
-
+            var url = $"api/merchants" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}";
+            
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
                 await Notification.ShowError("Failed to load merchant.");
                 return;
             }
+            
             _pagedMerchants = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
         }
         catch (Exception ex)
@@ -132,12 +143,6 @@
             StateHasChanged();
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
-    }
-
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadData();
     }
 
     private void GoToAddMerchant() => Navigation.NavigateTo("/merchants/add");

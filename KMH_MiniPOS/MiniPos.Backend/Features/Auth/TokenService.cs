@@ -22,34 +22,45 @@ public class TokenService
 
     public async Task<Result<TokenResponse>> IssueTokenAsync(IssueTokenRequest request)
     {
+        var accessMinutes = int.Parse(_configuration["Jwt:AccessTokenMinutes"]!);
+        var refreshDays = int.Parse(_configuration["Jwt:RefreshTokenDays"]!);
+        var now = DateTime.Now;
+        var accessExpires = now.AddMinutes(accessMinutes);
+        var refreshExpires = now.AddDays(refreshDays);
+        var refreshToken = GenerateSecureToken();
+        var refreshHash = HashToken(refreshToken);
+        var extraClaims = new List<Claim>
+        {
+            new(ClaimTypes.Role, request.Role),
+        };
+        var accessToken = CreateAccessToken(request.UserId, accessExpires, extraClaims);
+
         try
         {
-            var accessMinutes = int.Parse(_configuration["Jwt:AccessTokenMinutes"]!);
-            var refreshDays = int.Parse(_configuration["Jwt:RefreshTokenDays"]!);
-            var now = DateTime.Now;
-            var accessExpires = now.AddMinutes(accessMinutes);
-            var refreshExpires = now.AddDays(refreshDays);
-
-            var extraClaims = new List<Claim>
+            var existingRefreshToken = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.UserId == request.UserId && !t.IsRevoked);
+            if (existingRefreshToken != null)
             {
-                new(ClaimTypes.Role, request.Role),
-            };
-            var accessToken = CreateAccessToken(request.UserId, accessExpires, extraClaims);
-            var refreshToken = GenerateSecureToken();
-            var refreshHash = HashToken(refreshToken);
-
-            var refreshTokenEntity = new RefreshToken
+                existingRefreshToken.Token = refreshHash;
+                existingRefreshToken.ExpiresAt = refreshExpires;
+                existingRefreshToken.ReplacedByTokenHash = null;
+                existingRefreshToken.UpdatedAt = now;
+            }
+            else
             {
-                Token = refreshToken,
-                UserId = request.UserId,
-                IsRevoked = false,
-                ExpiresAt = refreshExpires,
-                CreatedAt = now,
-            };
+                var refreshTokenEntity = new RefreshToken
+                {
+                    Token = refreshHash,
+                    UserId = request.UserId,
+                    IsRevoked = false,
+                    ExpiresAt = refreshExpires,
+                    CreatedAt = now,
+                };
 
-            await _db.RefreshTokens.AddAsync(refreshTokenEntity);
+                await _db.RefreshTokens.AddAsync(refreshTokenEntity);
+            }
+
             await _db.SaveChangesAsync();
-            
+
             var rep = new TokenResponse
             {
                 AccessToken = accessToken,
@@ -74,15 +85,17 @@ public class TokenService
                 .Include(t => t.User)
                 .FirstOrDefaultAsync(t => t.Token == token);
 
-            if (refreshToken == null ||
-                refreshToken.ExpiresAt < DateTime.UtcNow ||
-                refreshToken.IsRevoked ||
-                refreshToken.ReplacedByTokenHash != null)
-                return Result<RefreshResponse>.Failure(new UnAuthorizedError("TokenService.RefreshAsync", "Refresh is expired."));
+            if (refreshToken == null)
+                return Result<RefreshResponse>.Failure(new UnAuthorizedError("TokenService.RefreshAsync",
+                    "Refresh is expired."));
+
+            var now = DateTimeOffset.UtcNow;
+            if (refreshToken.IsRevoked || refreshToken.ExpiresAt == null)
+                return Result<RefreshResponse>.Failure(new UnAuthorizedError("TokenService.RefreshAsync",
+                    "Refresh is expired."));
 
             var accessMinutes = int.Parse(_configuration["Jwt:AccessTokenMinutes"]!);
             var refreshDays = int.Parse(_configuration["Jwt:RefreshTokenDays"]!);
-            var now = DateTime.Now;
             var accessExpires = now.AddMinutes(accessMinutes);
             var refreshExpires = now.AddDays(refreshDays);
 
@@ -91,13 +104,22 @@ public class TokenService
                 new(ClaimTypes.Role, refreshToken.User.Role),
             };
             var accessToken = CreateAccessToken(refreshToken.UserId, accessExpires, extraClaims);
-            var refreshStr = GenerateSecureToken();
-            var refreshHash = HashToken(refreshStr);
 
-            refreshToken.Token = refreshHash;
-            refreshToken.ExpiresAt = refreshExpires;
-            refreshToken.ReplacedByTokenHash = refreshHash;
-            refreshToken.UpdatedAt = now;
+            var shouldRotateRefreshToken = refreshToken.ExpiresAt <= now.AddDays(1);
+            if (shouldRotateRefreshToken)
+            {
+                var refreshStr = GenerateSecureToken();
+                var refreshHash = HashToken(refreshStr);
+
+                refreshToken.Token = refreshHash;
+                refreshToken.ExpiresAt = refreshExpires;
+                refreshToken.ReplacedByTokenHash = refreshHash;
+                refreshToken.UpdatedAt = now.UtcDateTime;
+            }
+            else
+            {
+                refreshToken.UpdatedAt = now.UtcDateTime;
+            }
 
             await _db.SaveChangesAsync();
 
@@ -105,9 +127,10 @@ public class TokenService
             {
                 AccessToken = accessToken,
                 AccessTokenExpiresAtUtc = accessExpires,
-                RefreshToken = refreshHash,
-                RefreshTokenExpiresAtUtc = refreshExpires
+                RefreshToken = refreshToken.Token,
+                RefreshTokenExpiresAtUtc = refreshToken.ExpiresAt!.Value
             };
+
             return Result<RefreshResponse>.Success(new RefreshResponse
             {
                 UserId = refreshToken.UserId,
@@ -120,7 +143,7 @@ public class TokenService
             return Result<RefreshResponse>.Failure(new InternalError("TokenService.RefreshAsync", e.Message));
         }
     }
-    
+
     private string CreateAccessToken(Guid userId, DateTimeOffset expiresAtUtc, IEnumerable<Claim>? extraClaims)
     {
         var issuer = _configuration["Jwt:Issuer"]!;
@@ -173,7 +196,8 @@ public class TokenResponse
     public DateTimeOffset RefreshTokenExpiresAtUtc { get; set; }
 }
 
-public class IssueTokenRequest {
-    public Guid UserId { get; set; }
-    public string? Role { get; set; }
+public class IssueTokenRequest
+{
+    public required Guid UserId { get; set; }
+    public required string Role { get; set; } = string.Empty;
 }

@@ -1,9 +1,7 @@
-@using Microsoft.AspNetCore.Components.Web
-
-<div class="flex flex-col gap-6 mb-8 animate-slide-down">
+<div class="flex flex-col gap-4 mb-4 animate-slide-down">
     <!-- Main Header Row -->
     <div
-        class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-6 border-b border-border/30">
+        class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b border-border/30">
         <div class="space-y-1">
             <h1 class="text-4xl font-black tracking-tight text-foreground font-outfit">@Title</h1>
             @if (!string.IsNullOrEmpty(Subtitle))
@@ -83,18 +81,25 @@
     [Parameter] public string Subtitle { get; set; } = "";
     [Parameter] public string SearchPlaceholder { get; set; } = "Search...";
     [Parameter] public string SearchTerm { get; set; } = "";
-    
-    [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
-    [Parameter] public EventCallback OnSearch { get; set; }
+
+    [Parameter] public EventCallback<string?> SearchTermChanged { get; set; }
+    [Parameter] public EventCallback<string?> OnSearch { get; set; }
 
     [Parameter] public bool ShowViewToggle { get; set; } = true;
     [Parameter] public bool ShowSearch { get; set; } = true;
     [Parameter] public string ViewMode { get; set; } = "grid";
-    
+
     [Parameter] public EventCallback<string> ViewModeChanged { get; set; }
 
     [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+
+    private string _localSearchTerm = "";
+
+    protected override void OnParametersSet()
+    {
+        _localSearchTerm = SearchTerm;
+    }
 
     private async Task HandleSearchInput(ChangeEventArgs e)
     {
@@ -106,15 +111,16 @@
     {
         if (e.Key == "Enter")
         {
-            await OnSearch.InvokeAsync();
+            await OnSearch.InvokeAsync(_localSearchTerm);
         }
     }
 
     private async Task ClearSearch()
     {
         SearchTerm = "";
+        _localSearchTerm = "";
         await SearchTermChanged.InvokeAsync(SearchTerm);
-        await OnSearch.InvokeAsync();
+        await OnSearch.InvokeAsync(SearchTerm);
     }
 
     private async Task SetViewMode(string mode)

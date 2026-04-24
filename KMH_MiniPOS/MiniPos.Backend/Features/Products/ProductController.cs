@@ -43,7 +43,7 @@ public class ProductController : ControllerBase
         var result = await _productService.GetById(id);
         if (result.IsSuccess)
             return Ok(result.Data);
-        
+
         var statusCode = ErrorHttpMapper.GetStatusCode(result.Error!);
         return StatusCode(statusCode, new { message = result.Error!.Message });
     }

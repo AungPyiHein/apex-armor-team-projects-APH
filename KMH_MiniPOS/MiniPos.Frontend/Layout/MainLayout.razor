@@ -2,11 +2,10 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject HttpClient Http
-@using MiniPos.Frontend.Shared.Services
 @inject NotificationService NotificationService
 
 <div class="dashboard-layout animate-fade-in">
-    @if (@_isAuthenticated)
+    @if (_isAuthenticated)
     {
         <!-- Premium Glass Sidebar -->
         <aside class="dashboard-sidebar shadow-lg">
@@ -19,11 +18,12 @@
             </div>
 
             <div class="p-4 flex-1 overflow-y-auto">
-                <NavMenu />
+                <NavMenu/>
             </div>
 
             <!-- Premium Footer Profile in Sidebar -->
-            <div class="p-2 border-t border-border/50 bg-white/50 m-2 rounded-xl shadow-sm cursor-pointer hover:bg-white/80 transition-all hover:shadow-md group">
+            <div
+                class="p-2 border-t border-border/50 bg-white/50 m-2 rounded-xl shadow-sm cursor-pointer hover:bg-white/80 transition-all hover:shadow-md group">
                 @* <div class="flex items-center gap-3" @onclick='() => Navigation.NavigateTo("/profile")'> *@
                 @*     <div class="avatar shadow-md shrink-0 bg-blue-500 flex items-center justify-center text-white font-bold"> *@
                 @*         <i data-lucide="user" class="w-4 h-4"></i> *@
@@ -33,29 +33,35 @@
                 @*         <span class="text-[10px] text-muted-foreground truncate block">Active Session</span> *@
                 @*     </div> *@
                 @* </div> *@
-                <button @onclick="() => _showSignoutPrompt = true" class="w-full mt-3 btn btn-outline border-border/50 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-xs justify-between group py-2">
+                <button @onclick="() => _showSignoutPrompt = true"
+                        class="w-full mt-3 btn btn-outline border-border/50 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-xs justify-between group py-2">
                     Signout
-                    <i data-lucide="log-out" class="w-3 h-3 text-muted-foreground group-hover:text-red-600 transition-colors"></i>
+                    <i data-lucide="log-out"
+                       class="w-3 h-3 text-muted-foreground group-hover:text-red-600 transition-colors"></i>
                 </button>
             </div>
         </aside>
 
         @if (_showSignoutPrompt)
         {
-            <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in">
-                <div class="w-full max-w-sm bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in">
+                <div
+                    class="w-full max-w-sm bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
                     <div class="p-6 text-center">
                         <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <i data-lucide="log-out" class="w-8 h-8 text-red-600"></i>
                         </div>
                         <h3 class="text-xl font-bold text-slate-900 mb-2">Confirm Signout</h3>
                         <p class="text-slate-500 mb-6">Are you sure you want to sign out of your session?</p>
-                        
+
                         <div class="flex gap-3">
-                            <button @onclick="() => _showSignoutPrompt = false" class="flex-1 btn btn-outline border-slate-200 text-slate-600 hover:bg-slate-50">
+                            <button @onclick="() => _showSignoutPrompt = false"
+                                    class="flex-1 btn btn-outline border-slate-200 text-slate-600 hover:bg-slate-50">
                                 Cancel
                             </button>
-                            <button @onclick="HandleSignout" class="flex-1 btn bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-200 border-none font-bold">
+                            <button @onclick="HandleSignout"
+                                    class="flex-1 btn bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-200 border-none font-bold">
                                 Yes, Signout
                             </button>
                         </div>
@@ -76,33 +82,35 @@
                 </div>
 
                 <div class="flex items-center gap-4">
-                    <button class="relative btn btn-ghost p-2 rounded-full hover:bg-white shadow-sm border border-transparent hover:border-border/40">
+                    <button
+                        class="relative btn btn-ghost p-2 rounded-full hover:bg-white shadow-sm border border-transparent hover:border-border/40">
                         <i data-lucide="bell" class="w-5 h-5 text-muted-foreground"></i>
-                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full border border-white"></span>
+                        <span
+                            class="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full border border-white"></span>
                     </button>
                 </div>
             </header>
 
             <!-- Dynamic Page Content (Extended Width) -->
             <main class="dashboard-content">
-                    @Body
+                @Body
             </main>
         </div>
     }
     else
     {
         <div class="h-screen w-full flex items-center justify-center bg-slate-950">
-             <div class="animate-spin rounded-full h-8 w-8 border-2 border-t-blue-600 border-white/10"></div>
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-t-blue-600 border-white/10"></div>
         </div>
     }
 </div>
 
 <!-- Global Toast Notifications -->
-<Toast />
+<Toast/>
 
 @code {
-    private bool _isAuthenticated = false;
-    private bool _showSignoutPrompt = false;
+    private bool _isAuthenticated;
+    private bool _showSignoutPrompt;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,27 +119,30 @@
 
     private async Task CheckAuthentication()
     {
-            _isAuthenticated = false;
-            var request = await Http.GetAsync("api/auth/check");
-            if (!request.IsSuccessStatusCode)            {
-                 Navigation.NavigateTo("/login");
-                 return;
-            }
-            _isAuthenticated = true;
+        _isAuthenticated = false;
+        var request = await Http.GetAsync("api/auth/check");
+        if (!request.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _isAuthenticated = true;
     }
 
     private async Task HandleSignout()
     {
-        try 
+        try
         {
             var response = await Http.GetAsync("api/auth/signout");
             if (!response.IsSuccessStatusCode)
             {
                 return;
             }
-                Navigation.NavigateTo("/login");
+
+            Navigation.NavigateTo("/login");
         }
-        catch 
+        catch
         {
             Navigation.NavigateTo("/login");
         }
@@ -141,4 +152,5 @@
     {
         await JSRuntime.InvokeVoidAsync("initIcons");
     }
+
 }

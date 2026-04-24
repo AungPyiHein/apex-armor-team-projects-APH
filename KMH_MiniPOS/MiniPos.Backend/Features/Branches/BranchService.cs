@@ -27,18 +27,18 @@ public class BranchService : IBranchService
         try
         {
             var query = _db.Branches
-                .Where(b => b.MerchantId ==request.MerchantId)
+                .Where(b => b.MerchantId == request.MerchantId)
                 .AsNoTracking()
                 .AsQueryable();
-            
+
             var skip = (request.PageNumber - 1) * request.PageSize;
             var take = request.PageSize;
             var totalCount = await query.CountAsync();
-            
+
             query = query.Skip(skip).Take(take);
             List<BranchListResponse> items;
             PagedResult<BranchListResponse> result;
-            
+
             if (request.IncludeMerchant)
             {
                 items = await query
@@ -55,12 +55,12 @@ public class BranchService : IBranchService
                         }
                     })
                     .ToListAsync();
-                
+
                 result =
                     new PagedResult<BranchListResponse>(items, totalCount, request.PageNumber, request.PageSize);
                 return Result<PagedResult<BranchListResponse>>.Success(result);
             }
-            
+
             items = await query
                 .Select(b => new BranchListResponse
                 {
@@ -84,7 +84,7 @@ public class BranchService : IBranchService
         const string errCode = "Branch.GetById";
         try
         {
-            var todayStart = DateTime.Today; 
+            var todayStart = DateTime.Today;
             var tomorrowStart = todayStart.AddDays(1);
 
             var branchData = await _db.Branches
@@ -101,7 +101,7 @@ public class BranchService : IBranchService
                         Name = b.Merchant.Name
                     },
                     TodayOrderCount = b.Orders.Count(o => o.CreatedAt >= todayStart && o.CreatedAt < tomorrowStart),
-        
+
                     TodayOrderTotal = b.Orders
                         .Where(o => o.CreatedAt >= todayStart && o.CreatedAt < tomorrowStart)
                         .Sum(o => (decimal?)o.TotalAmount) ?? 0m
@@ -120,7 +120,7 @@ public class BranchService : IBranchService
                 Address = branchData.Address,
                 Merchant = branchData.Merchant,
                 TodayOrderCount = branchData.TodayOrderCount,
-                TodayOrderPrice = branchData.TodayOrderTotal, 
+                TodayOrderPrice = branchData.TodayOrderTotal,
             };
 
             return Result<BranchGetByIdResponse>.Success(branchDto);
