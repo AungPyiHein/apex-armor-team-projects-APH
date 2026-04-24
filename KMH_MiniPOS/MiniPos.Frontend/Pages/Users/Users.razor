@@ -1,6 +1,6 @@
 @page "/users"
-@using MiniPos.Frontend.Shared.Types
 @inject NotificationService Notification
+@using MiniPos.Frontend.Shared.Types
 @inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
 <PageTitle>Staff Members - MiniPOS</PageTitle>
@@ -11,14 +11,14 @@
     SearchPlaceholder="Search staff..."
     @bind-SearchTerm="SearchTerm"
     ShowViewToggle="false"
-    OnSearch="LoadUsers"
+    OnSearch="@HandleSearchTermChanged"
 >
 
     <Filters>
         <div class="relative group">
             <i data-lucide="store"
                class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
-            <select @bind="_selectedMerchantId" @bind:after="LoadUsers"
+            <select @bind="_selectedMerchantId" @bind:after="@AddMerchantQuery"
                     class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:bg-white transition-all shadow-sm cursor-pointer appearance-none">
                 <option value="">All Merchants</option>
                 @foreach (var mer in _merchants)
@@ -43,11 +43,11 @@
 
 <div
     class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-0">
-    @if (_isLoading && (_pagedUsers == null || !_pagedUsers.Data.Any()))
+    @if (_isLoading)
     {
         <div class="flex-1 flex flex-col items-center justify-center p-24">
             <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
-            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Loading staff...</p>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Loading...</p>
         </div>
     }
     else if (_pagedUsers == null || !_pagedUsers.Data.Any())
@@ -130,14 +130,14 @@
 
         <Pagination
             CurrentPage="@CurrentPage"
-            TotalPages="@(_pagedUsers?.TotalPages ?? 1)"
+            TotalPages="@(_totalPage)"
             TotalCount="@(_pagedUsers?.TotalCount ?? 0)"
             PageSize="@PageSize"
             OnPageChanged="@HandlePageChanged"
             OnFirst="@HandleFirstPage"
             OnPrevious="@HandlePreviousPage"
             OnNext="@HandleNextPage"
-            OnLast="() => HandlePageChanged(_pagedUsers?.TotalPages ?? 1)"
+            OnLast="() => HandlePageChanged(_totalPage)"
         />
     }
 </div>
@@ -146,6 +146,10 @@
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private HttpClient Http { get; set; } = default!;
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "merchantId")]
+    public Guid MerchantId { get; set; }
+
     public class UserUI
     {
         public string BadgeClass { get; set; } = "";
@@ -153,10 +157,10 @@
     }
 
     private PagedResult<User>? _pagedUsers;
-    private int _totalPage = 0;
     private List<Merchant> _merchants = new();
     private Guid? _selectedMerchantId;
-    private bool _isLoading = true;
+    private bool _isLoading;
+    private int _totalPage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -166,6 +170,15 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadMerchants();
+        if (MerchantId != Guid.Empty)
+        {
+            _selectedMerchantId = MerchantId;
+        }
+        else
+        {
+            _selectedMerchantId = _merchants[0].Id;
+        }
+
         await LoadUsers();
     }
 
@@ -176,50 +189,54 @@
             var response = await Http.GetAsync("api/merchants");
             if (!response.IsSuccessStatusCode)
             {
-                await Notification.ShowError("Failed to load merchants.");
+                Notification.ShowError("Failed to load merchants.");
                 return;
             }
 
             var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
-            if (result is { Data: not null })
-            {
-                _merchants = result.Data;
-                _selectedMerchantId = _merchants[0].Id;
-            }
+            _merchants = result.Data;
         }
         catch (Exception ex)
         {
-            await Notification.ShowError("Error loading merchants.");
+            Notification.ShowError("Error loading merchants.");
         }
     }
 
     private async Task LoadUsers()
     {
+        if (_selectedMerchantId == null)
+        {
+            _pagedUsers = null;
+            return;
+        }
+
         _isLoading = true;
         StateHasChanged();
 
         try
         {
-            var url = $"/api/users" +
-                      $"?q={SearchTerm}" +
-                      $"&page={CurrentPage}" +
-                      $"&size={PageSize}" +
+            var url = $"api/users" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
                       $"&merchantId={_selectedMerchantId}" +
                       $"&includeCashiers=true";
-            
+
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
-                await Notification.ShowError("Failed to load users.");
+                Notification.ShowError("Failed to load users.");
+                _pagedUsers = null;
                 return;
             }
 
             _pagedUsers = await response.Content.ReadFromJsonAsync<PagedResult<User>>();
-            _totalPage = _pagedUsers.TotalPages;
+            if (_pagedUsers != null)
+                _totalPage = _pagedUsers.TotalPages;
         }
         catch (Exception ex)
         {
-            await Notification.ShowError(ex.Message);
+            Notification.ShowError(ex.Message);
         }
         finally
         {
@@ -258,14 +275,29 @@
         return userName.Substring(0, Math.Min(2, userName.Length)).ToUpper();
     }
 
-    private void GoToUserDetail(Guid userId) => Navigation.NavigateTo($"/users/{userId}");
-    private void GoToAddStaff() => Navigation.NavigateTo("/users/add");
+    private void GoToUserDetail(Guid userId)
+    {
+        Navigation.NavigateTo($"/{_selectedMerchantId}/users/{userId}");
+    }
+
+    private void GoToAddStaff()
+    {
+        Navigation.NavigateTo($"/users/add");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private void AddMerchantQuery()
+    {
+        if (_selectedMerchantId.HasValue)
+        {
+            AppendQuery("merchantId", _selectedMerchantId.Value);
         }
     }
 

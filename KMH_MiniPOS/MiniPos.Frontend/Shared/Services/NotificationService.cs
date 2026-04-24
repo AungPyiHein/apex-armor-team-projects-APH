@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace MiniPos.Frontend.Shared.Services;
 
 public enum ToastType
@@ -28,18 +23,26 @@ public class NotificationService
     public event Action? OnChange;
 
     public async Task ShowSuccess(string message, string? title = null)
-        => await Show(message, ToastType.Success, title);
+    {
+        await Show(message, ToastType.Success, title);
+    }
 
     public async Task ShowError(string message, string? title = null)
-        => await Show(message, ToastType.Error, title);
+    {
+        await Show(message, ToastType.Error, title);
+    }
 
     public async Task ShowWarning(string message, string? title = null)
-        => await Show(message, ToastType.Warning, title);
+    {
+        await Show(message, ToastType.Warning, title);
+    }
 
     public async Task ShowInfo(string message, string? title = null)
-        => await Show(message, ToastType.Info, title);
+    {
+        await Show(message, ToastType.Info, title);
+    }
 
-    private async Task Show(string message, ToastType type, string? title, int durationMs = 1000)
+    private async Task Show(string message, ToastType type, string? title, int durationMs = 5000)
     {
         var toast = new ToastMessage(Guid.NewGuid(), message, type, title);
         _toasts.Add(toast);

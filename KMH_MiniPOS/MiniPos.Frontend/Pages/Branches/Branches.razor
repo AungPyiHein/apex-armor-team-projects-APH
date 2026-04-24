@@ -1,15 +1,19 @@
 @page "/branches"
 @inject NotificationService NotificationService
 @using MiniPos.Frontend.Shared.Types
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
 <PageTitle>Store Branches - MiniPOS</PageTitle>
 
-<PageHeader Title="Store Branches"
-            Subtitle="Manage physical locations and service points"
-            SearchPlaceholder="Search branches..."
-            @bind-SearchTerm="_searchTerm"
-            ShowViewToggle="false"
-            OnSearch="LoadBranches">
+<PageHeader
+    Title="Store Branches"
+    Subtitle="Manage physical locations and service points"
+    SearchPlaceholder="Search branches..."
+    @bind-SearchTerm="SearchTerm"
+    ShowViewToggle="false"
+    OnSearch="@HandleSearchTermChanged"
+>
+
     <Filters>
         <div class="flex items-center gap-2">
             <div class="relative group">
@@ -28,6 +32,7 @@
             </div>
         </div>
     </Filters>
+ 
     <Actions>
         <button
             class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
@@ -36,7 +41,8 @@
             <span class="font-black uppercase tracking-tight text-sm">Add Branch</span>
         </button>
     </Actions>
-</PageHeader>
+
+    </PageHeader>
 
 <div
     class="bg-transparent rounded-none border-none shadow-none flex flex-col min-h-0">
@@ -52,7 +58,7 @@
                 Branches...</p>
         </div>
     }
-    else if (_selectedMerchantId == null && string.IsNullOrEmpty(_searchTerm))
+    else if (_selectedMerchantId == null && string.IsNullOrEmpty(SearchTerm))
     {
         <!-- Initial / Select state -->
         <div
@@ -77,7 +83,8 @@
             <p class="text-muted-foreground max-w-xs mx-auto mt-2 font-medium">We couldn't find any branches matching
                 your search criteria.</p>
             <button class="mt-8 text-xs font-black text-primary underline decoration-2 underline-offset-8"
-                    @onclick='() => { _searchTerm = ""; _selectedMerchantId = null; LoadBranches(); }'>Reset all filters
+                    @onclick='() => { UpdateUrlState("", 1, PageSize); _selectedMerchantId = null; LoadBranches(); }'>
+                Reset all filters
             </button>
         </div>
     }
@@ -142,12 +149,16 @@
             </div>
         </div>
 
-        <div class="mt-10">
-            <Pagination CurrentPage="_currentPage"
+        <div class="mt-4">
+            <Pagination CurrentPage="@CurrentPage"
                         TotalPages="@(_pagedBranches?.TotalPages ?? 1)"
                         TotalCount="@(_pagedBranches?.TotalCount ?? 0)"
-                        PageSize="10"
-                        PageChanged="HandlePageChanged"/>
+                        PageSize="@PageSize"
+                        OnPageChanged="@HandlePageChanged"
+                        OnFirst="@HandleFirstPage"
+                        OnPrevious="@HandlePreviousPage"
+                        OnNext="@HandleNextPage"
+                        OnLast="() => HandlePageChanged(_pagedBranches?.TotalPages ?? 1)"/>
         </div>
     }
 </div>
@@ -156,13 +167,19 @@
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private HttpClient Http { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-
+    [Inject] private NotificationService Notification { get; set; } = default!;
+    
+    [Parameter] public string? MerchantId { get; set; }
+    
     private PagedResult<Branch>? _pagedBranches;
     private List<Merchant> _merchants = new();
     private Guid? _selectedMerchantId;
-    private string _searchTerm = "";
-    private int _currentPage = 1;
     private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadBranches();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -173,7 +190,8 @@
     {
         try
         {
-            var response = await Http.GetAsync("api/merchants?pageSize=100");
+            var url = $"api/merchants";
+            var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
                 await NotificationService.ShowError("Failed to load merchants.");
@@ -193,8 +211,7 @@
             Console.WriteLine($"Error loading merchants: {ex.Message}");
         }
     }
-
-
+    
     private async Task LoadBranches()
     {
         if (_selectedMerchantId == null)
@@ -202,19 +219,29 @@
             Clear();
             return;
         }
+
         _isLoading = true;
         StateHasChanged();
+        
         try
         {
-            var url = $"api/branches?page={_currentPage}&pageSize=10";
-            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
-            if (_selectedMerchantId.HasValue) url += $"&merchantId={_selectedMerchantId.Value}";
-
-            _pagedBranches = await Http.GetFromJsonAsync<PagedResult<Branch>>(url);
+            var url = $"api/branches" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
+                      $"&merchantId={_selectedMerchantId}";
+            
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)            {
+                await Notification.ShowError("Failed to load branches.");
+                return;
+            }
+            
+            _pagedBranches = await response.Content.ReadFromJsonAsync<PagedResult<Branch>>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading branches: {ex.Message}");
+            Notification.ShowError( $"Error loading branches: {ex.Message}");
         }
         finally
         {
@@ -224,12 +251,6 @@
         }
     }
 
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadBranches();
-    }
-
     private void GoToAddBranch() => Navigation.NavigateTo("/branches/add");
 
     private void Clear()
@@ -237,7 +258,7 @@
         _isLoading = false;
         _pagedBranches = null;
     }
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -245,5 +266,4 @@
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
     }
-
 }

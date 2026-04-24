@@ -28,4 +28,8 @@
         <ProjectReference Include="..\MiniPos.Shared\Mapper\Mapper.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Features\Customers\" />
+    </ItemGroup>
+
 </Project>

@@ -38,6 +38,7 @@ public class MerchantService : IMerchantService
             var skip = (request.PageNumber - 1) * request.PageSize;
             var take = request.PageSize;
             var totalCount = await query.CountAsync();
+
             var merchants = await query
                 .Skip(skip)
                 .Take(take)

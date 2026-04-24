@@ -1,6 +1,8 @@
 @page "/orders"
-@inject NotificationService Notification
+@using System.Web
+@using MiniPos.Frontend.Pages.Customers
 @using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
 
 <PageTitle>Point of Sale -
     MiniPOS @(string.IsNullOrEmpty(_selectedBranchName) ? "" : $"- {_selectedBranchName}")</PageTitle>
@@ -15,14 +17,14 @@
         class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/20 blur-[120px] rounded-full animate-pulse delay-700 mix-blend-multiply"></div>
 </div>
 
-<div class="animate-fade-in h-full flex flex-col p-4 lg:p-6 max-h-screen overflow-hidden">
+<div class="animate-fade-in h-full flex flex-col max-h-screen overflow-hidden">
     <div
-        class="flex flex-wrap items-center gap-3 mb-6 bg-white/60 backdrop-blur-2xl p-3 rounded-[2rem] border border-white/80 shadow-2xl shadow-black/[0.03] shrink-0">
+        class="flex flex-wrap items-center gap-3 mb-2 bg-white/60 backdrop-blur-2xl p-1 rounded-2xl border border-white/80 shadow-2xl shadow-black/[0.03] shrink-0">
         <!-- Brand/Register Info -->
-        <div class="flex items-center gap-3 px-4 border-r border-border/10 mr-2 py-1">
+        <div class="flex items-center gap-3 px-2 border-r border-border/10 mr-2 py-2">
             <div
                 class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer">
-                <i data-lucide="zap" class="w-6 h-6"></i>
+                <i data-lucide="zap" class="w-4 h-4"></i>
             </div>
             <div class="hidden sm:block text-left">
                 <h1 class="text-sm font-black tracking-tighter text-foreground leading-none font-outfit uppercase">
@@ -129,12 +131,12 @@
     }
     else
     {
-        <div class="flex-1 flex gap-4 min-h-0">
+        <div class="flex-1 flex gap-2 min-h-0">
 
             <!-- Left: Micro-Product Grid -->
             <div
-                class="flex-[1.8] flex flex-col min-h-0 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[2rem] overflow-hidden shadow-xl shadow-black/[0.02]">
-                <div class="flex-1 overflow-y-auto p-4 stylish-scrollbar">
+                class="flex-[1.8] flex flex-col min-h-0 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-2xl overflow-hidden shadow-xl shadow-black/2">
+                <div class="flex-1 overflow-y-auto p-2 stylish-scrollbar">
                     @if (_branchInventories == null || !_branchInventories.Any())
                     {
                         <div class="h-full flex flex-col items-center justify-center text-center p-12 opacity-30">
@@ -153,7 +155,7 @@
                                 var outOfStock = item.StockQuantity <= 0;
 
                                 <button
-                                    class="relative group bg-white border border-border/40 rounded-[2rem] overflow-hidden hover:shadow-2xl hover:shadow-primary/15 transition-all flex flex-col h-[280px] text-left @(outOfStock ? "opacity-60 grayscale bg-slate-50/50" : "hover:-translate-y-2 active:scale-[0.98]")"
+                                    class="relative group bg-white border border-border/40 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-primary/15 transition-all flex flex-col h-[280px] text-left @(outOfStock ? "opacity-60 grayscale bg-slate-50/50" : "hover:-translate-y-2 active:scale-[0.98]")"
                                     disabled="@outOfStock" @onclick="() => AddToCart(item)">
 
                                     <!-- Premium Card Image Area -->
@@ -219,7 +221,7 @@
 
             <!-- Right: Concise Checkout Cart -->
             <div
-                class="w-[340px] xl:w-[400px] flex flex-col shrink-0 min-h-0 bg-white/80 backdrop-blur-3xl border border-white rounded-[2rem] shadow-2xl overflow-hidden ring-1 ring-black/[0.03] animate-slide-up">
+                class="w-[340px] xl:w-[400px] flex flex-col shrink-0 min-h-0 bg-white/80 backdrop-blur-3xl border border-white rounded-2xl shadow-2xl overflow-hidden ring-1 ring-black/[0.03] animate-slide-up">
 
                 <!-- Cart Header -->
                 <div class="px-6 py-5 bg-slate-50/50 border-b border-border/10 shrink-0">
@@ -239,6 +241,85 @@
                                 Reset
                             </button>
                         }
+                    </div>
+                </div>
+
+                <!-- Customer Identification -->
+                <div class="px-6 py-4 bg-white/60 border-b border-border/10 shrink-0">
+                    <div class="flex items-start gap-3">
+                        <div
+                            class="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex flex-col">
+                                    <span
+                                        class="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Customer Phone</span>
+                                    @if (_selectedCustomerId.HasValue)
+                                    {
+                                        <span class="text-[11px] font-black text-foreground truncate">
+                                            @_selectedCustomerName
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span
+                                            class="text-[11px] font-bold text-muted-foreground">Walk-in (auto create)</span>
+                                    }
+                                </div>
+                                @if (_selectedCustomerId.HasValue)
+                                {
+                                    <button
+                                        class="text-[10px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest px-3 py-1 rounded-lg hover:bg-primary/5 transition-colors"
+                                        @onclick="ClearSelectedCustomer" disabled="@_isProcessing">
+                                        Change
+                                    </button>
+                                }
+                            </div>
+
+                            <div class="relative">
+                                <i data-lucide="phone"
+                                   class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+                                <input type="text"
+                                       placeholder="09xxxxxxxxx"
+                                       class="w-full pl-11 pr-4 py-3 bg-white border border-border/60 rounded-2xl text-[11px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:bg-white transition-all shadow-sm"
+                                       value="@_customerPhone"
+                                       @oninput="OnCustomerPhoneInput"
+                                       disabled="@_isProcessing"/>
+
+                                @if (_showCustomerSuggestions && _customerSuggestions.Any())
+                                {
+                                    <div
+                                        class="absolute left-0 right-0 mt-2 bg-white border border-border/40 rounded-2xl shadow-2xl overflow-hidden z-50">
+                                        <div class="max-h-56 overflow-auto custom-scrollbar">
+                                            @foreach (var c in _customerSuggestions)
+                                            {
+                                                <button
+                                                    class="w-full text-left px-4 py-3 hover:bg-primary/5 transition-colors flex items-center justify-between gap-4"
+                                                    @onclick="() => SelectCustomer(c)" disabled="@_isProcessing">
+                                                    <div class="min-w-0">
+                                                        <div
+                                                            class="text-[11px] font-black text-foreground truncate">@c.Name</div>
+                                                        <div
+                                                            class="text-[10px] font-bold text-muted-foreground truncate">@c.PhoneNumber</div>
+                                                    </div>
+                                                    <div
+                                                        class="text-[10px] font-mono font-bold text-muted-foreground bg-slate-100/60 px-2 py-1 rounded">
+                                                        @c.Id.ToString().Substring(0, 8).ToUpper()
+                                                    </div>
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(_customerPhoneError))
+                            {
+                                <div class="mt-2 text-[10px] font-bold text-red-500">@_customerPhoneError</div>
+                            }
+                        </div>
                     </div>
                 </div>
 
@@ -316,7 +397,8 @@
                             <div class="flex flex-col">
                                 <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-1">Total Amount</span>
                                 <span
-                                    class="text-3xl font-black font-outfit text-foreground tracking-tighter">@grandTotal</span> MMK
+                                    class="text-3xl font-black font-outfit text-foreground tracking-tighter">@grandTotal</span>
+                                MMK
                             </div>
                             <div
                                 class="w-12 h-12 bg-primary/5 rounded-full flex items-center justify-center text-primary animate-pulse">
@@ -326,7 +408,7 @@
                     </div>
 
                     <button
-                        class="w-full bg-primary hover:bg-indigo-600 text-white font-black py-4 px-6 rounded-2xl shadow-2xl shadow-primary/30 transition-all flex items-center justify-between group active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+                        class="w-full bg-primary hover:bg-indigo-600 text-white font-black py-2 px-2 rounded-2xl shadow-2xl shadow-primary/30 transition-all flex items-center justify-between group active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                         disabled="@(!_cart.Any() || _isProcessing)" @onclick="Checkout">
                         <div class="flex items-center gap-3">
                             @if (_isProcessing)
@@ -338,8 +420,8 @@
                             else
                             {
                                 <div
-                                    class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
-                                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                                    class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
+                                    <i data-lucide="credit-card" class="w-8 h-8"></i>
                                 </div>
                                 <span
                                     class="text-[11px] font-black uppercase tracking-[0.2em] ml-1">Complete Sale</span>
@@ -347,7 +429,7 @@
                         </div>
                         <div class="flex flex-col items-end leading-none">
                             <span class="text-[9px] font-black uppercase opacity-60 mb-1">Pay</span>
-                            <span class="font-black font-outfit text-lg">$@grandTotal.ToString("N2")</span>
+                            <span class="font-black font-outfit text-lg">@grandTotal.ToString("N2")</span>
                         </div>
                     </button>
                 </div>
@@ -359,7 +441,7 @@
 @if (_showSuccessModal)
 {
     <div
-        class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-fade-in">
+        class="fixed inset-0 z-100 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-fade-in">
         <div
             class="bg-white rounded-[3.5rem] shadow-[0_32px_120px_-15px_rgba(0,0,0,0.3)] p-12 max-w-md w-full text-center animate-scale-up border border-white/20 relative overflow-hidden">
             <!-- Decorative Background Element -->
@@ -376,7 +458,7 @@
                 and items are ready for collection.</p>
 
             <button
-                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-emerald-500/30 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-[11px]"
+                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-2xl shadow-2xl shadow-emerald-500/30 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-[11px]"
                 @onclick="CloseSuccessModal">
                 Ok
             </button>
@@ -417,19 +499,27 @@
     }
 
     private bool _isLoading = true;
-    private bool _isProcessing = false;
-    private bool _showSuccessModal = false;
+    private bool _isProcessing;
+    private bool _showSuccessModal;
     private List<Category>? _categories;
     private List<Branch>? _branches;
     private List<BranchInventory>? _branchInventories;
+
+    private string _customerPhone = "";
+    private string _customerPhoneError = "";
+    private bool _showCustomerSuggestions;
+    private List<CustomerDto> _customerSuggestions = new();
+    private Guid? _selectedCustomerId;
+    private string _selectedCustomerName = "";
+    private CancellationTokenSource? _customerLookupCts;
 
     private Guid? _selectedBranchId;
     private string? _selectedBranchName;
     private Guid? _selectedCategoryId;
     private string _searchQuery = "";
 
-    private Dictionary<Guid, ProductUi> _productUIs = new();
-    private List<OrderItem> _cart = new();
+    private readonly Dictionary<Guid, ProductUi> _productUIs = new();
+    private readonly List<OrderItem> _cart = new();
     private List<Merchant>? _merchants = new();
     private Guid? _selectedMerchantId;
 
@@ -457,7 +547,7 @@
 
             await LoadCategoryAndBranches();
 
-            if (_selectedBranchId.HasValue && _branches != null && !_branches.Any(b => b.Id == _selectedBranchId.Value))
+            if (_selectedBranchId.HasValue && _branches != null && _branches.All(b => b.Id != _selectedBranchId.Value))
             {
                 _selectedBranchId = null;
                 _selectedBranchName = null;
@@ -524,7 +614,7 @@
 
             var categoryResult = await response.Content.ReadFromJsonAsync<PagedResult<Category>>();
             _categories = categoryResult.Data;
-            
+
             await LoadBranchInventories();
         }
         catch (Exception ex)
@@ -551,6 +641,7 @@
             _branchInventories = null;
             _cart.Clear();
         }
+
         StateHasChanged();
         await JSRuntime.InvokeVoidAsync("initIcons");
     }
@@ -565,7 +656,6 @@
     }
 
 
-
     private async Task LoadBranchInventories()
     {
         if (!_selectedBranchId.HasValue) return;
@@ -577,7 +667,7 @@
         {
             var url = $"api/inventories?pageSize=100&branchId={_selectedBranchId.Value}";
             if (_selectedCategoryId.HasValue) url += $"&categoryId={_selectedCategoryId.Value}";
-            if (!string.IsNullOrWhiteSpace(_searchQuery)) url += $"&searchTerm={System.Web.HttpUtility.UrlEncode(_searchQuery)}";
+            if (!string.IsNullOrWhiteSpace(_searchQuery)) url += $"&searchTerm={HttpUtility.UrlEncode(_searchQuery)}";
 
             var result = await Http.GetFromJsonAsync<PagedResult<BranchInventory>>(url);
             _branchInventories = result?.Data;
@@ -610,7 +700,7 @@
             ("from-violet-400 to-fuchsia-500", "bg-violet-300", "cake")
         };
 
-        int i = 0;
+        var i = 0;
         foreach (var item in _branchInventories)
         {
             if (!_productUIs.ContainsKey(item.ProductId))
@@ -703,19 +793,43 @@
     {
         if (!_cart.Any()) return;
 
+        _customerPhoneError = "";
+        var phone = (_customerPhone ?? "").Trim();
+        // if (string.IsNullOrWhiteSpace(phone))
+        // {
+        //     _customerPhoneError = "Phone number is required.";
+        //     await Notification.ShowError("Please enter customer phone number before checkout.");
+        //     return;
+        // }
+
+        if (!_selectedMerchantId.HasValue)
+        {
+            await Notification.ShowError("Please select a merchant first.");
+            return;
+        }
+
+        if (!_selectedBranchId.HasValue)
+        {
+            await Notification.ShowError("Please select a branch first.");
+            return;
+        }
+
         _isProcessing = true;
         StateHasChanged();
 
         try
         {
+            _showCustomerSuggestions = false;
+            var customerId = await EnsureCustomerByPhoneAsync(_selectedMerchantId.Value, phone);
+
             var request = new
             {
+                CustomerId = customerId,
                 BranchId = _selectedBranchId.Value,
                 MerchantId = _selectedMerchantId.Value,
                 OrderedItems = _cart.Select(i => new
                 {
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity
+                    i.ProductId, i.Quantity
                 }).ToList()
             };
 
@@ -743,6 +857,121 @@
             StateHasChanged();
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
+    }
+
+    private async Task<Guid> EnsureCustomerByPhoneAsync(Guid merchantId, string phone)
+    {
+        if (_selectedCustomerId.HasValue)
+        {
+            // Trust selected customer if phone matches what was selected/typed
+            var selectedPhone = (_customerPhone ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(selectedPhone) && selectedPhone == phone)
+                return _selectedCustomerId.Value;
+        }
+
+        var url = $"api/customers?pageNumber=1&pageSize=20&merchantId={merchantId}&searchTerm={Uri.EscapeDataString(phone)}";
+        var paged = await Http.GetFromJsonAsync<PagedResult<CustomerDto>>(url);
+        var existing = paged?.Data?.FirstOrDefault(c => (c.PhoneNumber ?? "").Trim() == phone);
+        if (existing != null)
+        {
+            _selectedCustomerId = existing.Id;
+            _selectedCustomerName = existing.Name;
+            return existing.Id;
+        }
+
+        var createRes = await Http.PostAsJsonAsync("api/customers", new CustomerCreateRequest
+        {
+            MerchantId = merchantId,
+            Name = $"Walk-in ({phone})",
+            PhoneNumber = phone,
+            Email = null
+        });
+
+        if (!createRes.IsSuccessStatusCode)
+        {
+            var err = await createRes.Content.ReadAsStringAsync();
+            throw new Exception(string.IsNullOrWhiteSpace(err) ? "Failed to create customer" : err);
+        }
+
+        // 3) Re-query to get the ID (Create endpoint returns no body)
+        paged = await Http.GetFromJsonAsync<PagedResult<CustomerDto>>(url);
+        existing = paged?.Data?.FirstOrDefault(c => (c.PhoneNumber ?? "").Trim() == phone);
+        if (existing != null)
+        {
+            _selectedCustomerId = existing.Id;
+            _selectedCustomerName = existing.Name;
+            return existing.Id;
+        }
+
+        throw new Exception("Customer created but could not be reloaded.");
+    }
+
+    private async Task OnCustomerPhoneInput(ChangeEventArgs e)
+    {
+        _customerPhone = e.Value?.ToString() ?? "";
+        _customerPhoneError = "";
+        _selectedCustomerId = null;
+        _selectedCustomerName = "";
+
+        var phone = _customerPhone.Trim();
+        _showCustomerSuggestions = false;
+        _customerSuggestions.Clear();
+
+        if (!_selectedMerchantId.HasValue || phone.Length < 3)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        _customerLookupCts?.Cancel();
+        _customerLookupCts?.Dispose();
+        _customerLookupCts = new CancellationTokenSource();
+        var ct = _customerLookupCts.Token;
+
+        try
+        {
+            // tiny debounce
+            await Task.Delay(250, ct);
+            var url = $"api/customers?pageNumber=1&pageSize=10&merchantId={_selectedMerchantId.Value}&searchTerm={Uri.EscapeDataString(phone)}";
+            var paged = await Http.GetFromJsonAsync<PagedResult<CustomerDto>>(url, ct);
+
+            if (ct.IsCancellationRequested) return;
+
+            _customerSuggestions = (paged?.Data ?? new List<CustomerDto>())
+                .Where(c => !string.IsNullOrWhiteSpace(c.PhoneNumber))
+                .ToList();
+            _showCustomerSuggestions = _customerSuggestions.Any();
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
+        catch
+        {
+            // ignore lookup errors during typing
+        }
+        finally
+        {
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private void SelectCustomer(CustomerDto customer)
+    {
+        _selectedCustomerId = customer.Id;
+        _selectedCustomerName = customer.Name;
+        _customerPhone = customer.PhoneNumber ?? "";
+        _showCustomerSuggestions = false;
+        _customerSuggestions.Clear();
+    }
+
+    private void ClearSelectedCustomer()
+    {
+        _selectedCustomerId = null;
+        _selectedCustomerName = "";
+        _showCustomerSuggestions = false;
+        _customerSuggestions.Clear();
     }
 
     private async Task CloseSuccessModal()

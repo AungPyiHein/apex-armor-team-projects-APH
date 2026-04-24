@@ -1,4 +1,4 @@
-@page "/users/{MerchantId:guid}/{UserId:guid}"
+@page "/{MerchantId}/users/{UserId}"
 @inject NotificationService Notification
 @using MiniPos.Frontend.Shared.Types
 
@@ -652,7 +652,7 @@
             }
 
             await Notification.ShowSuccess("Account deactivated successfully.");
-            Navigation.NavigateTo("/users");
+            GoBack();
         }
         catch (Exception ex)
         {
@@ -673,7 +673,7 @@
 
     private void GoBack()
     {
-        Navigation.NavigateTo("/users");
+        Navigation.NavigateTo($"/users?merchantId={MerchantId}");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

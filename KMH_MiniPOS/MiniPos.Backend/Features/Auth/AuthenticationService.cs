@@ -27,7 +27,7 @@ public class AuthenticationService : IAuthenticationService
         IPasswordHasher<User> passwordHasher,
         IUserService userService,
         TokenService tokenService
-        // IHttpContextAccessor httpContextAccessor
+    // IHttpContextAccessor httpContextAccessor
     )
     {
         _db = db;
@@ -60,7 +60,7 @@ public class AuthenticationService : IAuthenticationService
             Role = user.Role,
             UserId = user.Id,
         });
-       
+
         var response = new SignupResponse
         {
             UserId = user.Id,
@@ -76,7 +76,6 @@ public class AuthenticationService : IAuthenticationService
         var errCode = "AuthenticationService.Signin";
         try
         {
-            Console.WriteLine($"Signin attempt for email: {request.Email}");
             var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user is null) return Result<SigninResponse>.Failure(new UnAuthorizedError(errCode, "Invalid credentials"));
 
@@ -89,6 +88,7 @@ public class AuthenticationService : IAuthenticationService
                 Role = user.Role,
                 UserId = user.Id,
             });
+
             return Result<SigninResponse>.Success(new SigninResponse
             {
                 UserId = user.Id,
@@ -121,7 +121,7 @@ public class AuthenticationService : IAuthenticationService
             refreshToken.RevokedAt = DateTime.UtcNow;
             refreshToken.ReplacedByTokenHash = null;
             refreshToken.ExpiresAt = null;
-            
+
             await _db.SaveChangesAsync();
             return Result.Success();
         }

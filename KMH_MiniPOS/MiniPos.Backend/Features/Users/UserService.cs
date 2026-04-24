@@ -36,17 +36,17 @@ public class UserService : IUserService
 
     public async Task<Result<PagedResult<UserListResponse>>> GetList(UserListRequest request)
     {
-        Console.WriteLine($"{request.MerchantId} {request.ProcessedById}");
         var errCode = "User.List";
         try
         {
             if (request.IncludeCashiers)
             {
                 var isOwner = await _db.Merchants
-                    .AnyAsync(m => 
+                    .AnyAsync(m =>
                         m.Users.Any(u => u.Id == request.ProcessedById && u.Role == nameof(UserRole.Merchant)));
                 if (!isOwner)
-                    return Result<PagedResult<UserListResponse>>.Failure(new UnAuthorizedError(errCode, "UnAuthorized."));
+                    return Result<PagedResult<UserListResponse>>.Failure(
+                        new UnAuthorizedError(errCode, "UnAuthorized."));
 
                 var query = _db.Users
                     .Where(u => u.MerchantId == request.MerchantId && u.Role == nameof(UserRole.Cashier))
@@ -56,8 +56,9 @@ public class UserService : IUserService
                 if (!string.IsNullOrWhiteSpace(request.SearchTerm))
                 {
                     var searchTerm = request.SearchTerm.Trim().ToLower();
-                    query = query.Where(u => (u.Username.ToLower().Contains(searchTerm) ||
-                                              u.Email.ToLower().Contains(searchTerm)));
+                    query = query.Where(u =>
+                        u.Username.ToLower().Contains(searchTerm) ||
+                        u.Email.ToLower().Contains(searchTerm));
                 }
 
                 var totalCount = await query.CountAsync();

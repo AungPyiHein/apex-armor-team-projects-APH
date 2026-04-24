@@ -1,6 +1,7 @@
 using Common;
 using Database.EfAppDbContextModels;
 using Microsoft.EntityFrameworkCore;
+using MiniPos.Backend.Features.Loyalties;
 
 namespace MiniPos.Backend.Features.Orders;
 
@@ -15,23 +16,19 @@ public interface IOrderService
 public class OrderService : IOrderService
 {
     private readonly AppDbContext _db;
+    private readonly ILoyaltyService _loyaltyService;
 
-    public OrderService(AppDbContext db)
+    public OrderService(AppDbContext db, ILoyaltyService loyaltyService)
     {
         _db = db;
+        _loyaltyService = loyaltyService;
     }
 
-    private async Task<bool> IsMerchantOwner(Guid merchantId, Guid merchantAdminId)
-    {
-        return await _db.MerchantAdmins.AnyAsync(ma =>
-            ma.MerchantId == merchantId && ma.UserId == merchantAdminId);
-    }
-    
     public async Task<Result<PagedResult<OrderListResponse>>> GetList(OrderListRequest request)
     {
         try
         {
-            if (! await IsMerchantOwner(request.MerchantId, request.MerchantAdminId))
+            if (!await IsMerchantOwner(request.MerchantId, request.MerchantAdminId))
                 return Result<PagedResult<OrderListResponse>>.Failure(new UnAuthorizedError("Orders.GetList",
                     "This user can not be accessible the orders of this merchant."));
 
@@ -150,6 +147,7 @@ public class OrderService : IOrderService
         const string errCode = "Order.Create";
         try
         {
+            Console.WriteLine($"id: {request.CustomerId}");
             var userExist = await _db.Users.AnyAsync(u => u.Id == request.ProcessedById);
             if (!userExist) return Result.Failure(new NotFoundError(errCode, "User does not exist"));
 
@@ -165,7 +163,7 @@ public class OrderService : IOrderService
 
             if (inventories.Count != productIds.Count)
                 return Result.Failure(new NotFoundError(errCode,
-                    $"One or more products do not exist in this branch's inventory"));
+                    "One or more products do not exist in this branch's inventory"));
 
             var orderItems = new List<OrderItem>();
             decimal totalOrderAmount = 0;
@@ -202,10 +200,22 @@ public class OrderService : IOrderService
                 OrderItems = orderItems
             };
 
+            Customer? customer = null;
+            if (request.CustomerId != Guid.Empty)
+                customer =
+                    await _db.Customers.FirstOrDefaultAsync(c => c.Id == request.CustomerId);
+
             await _db.Orders.AddAsync(order);
             await _db.SaveChangesAsync();
 
-            return Result.Success();
+            if (customer == null) return Result.Success();
+
+            order.CustomerId = customer.Id;
+            var result = await TrySendPurchaseEvent(order, customer, totalOrderAmount);
+
+            return !result.IsSuccess
+                ? Result.Failure(new InternalError(errCode, "Third party loyalty reward system failed"))
+                : Result.Success();
         }
         catch (Exception e)
         {
@@ -234,6 +244,27 @@ public class OrderService : IOrderService
         {
             return Result.Failure(new InternalError(errCode, e.Message));
         }
+    }
+
+    private async Task<bool> IsMerchantOwner(Guid merchantId, Guid merchantAdminId)
+    {
+        return await _db.MerchantAdmins.AnyAsync(ma =>
+            ma.MerchantId == merchantId && ma.UserId == merchantAdminId);
+    }
+
+    private Task<Result<CreateEventResponse>> TrySendPurchaseEvent(Order order, Customer customer, decimal totalAmount)
+    {
+        var loyaltyRequest = new CreateEventRequest
+        {
+            ExternalUserId = customer.Id.ToString(),
+            EventKey = "PURCHASE",
+            EventValue = totalAmount,
+            ReferenceId = order.Id.ToString(),
+            Description = $"Order purchase: {order.Id}",
+            Email = customer.Email,
+            Mobile = customer.PhoneNumber,
+        };
+        return _loyaltyService.CreateEventAsync(loyaltyRequest);
     }
 }
 
@@ -296,10 +327,12 @@ public class OrderItemDto
 
 public class OrderCreateRequest
 {
-    public Guid MerchantId { get; set; }
-    public Guid BranchId { get; set; }
-    public Guid ProcessedById { get; set; }
-    public List<OrderedItemRequest> OrderedItems { get; set; } = new();
+    public Guid MerchantId { get; set; } = Guid.Empty;
+    public Guid BranchId { get; set; } = Guid.Empty;
+    public Guid ProcessedById { get; set; } = Guid.Empty;
+    public Guid CustomerId { get; set; } = Guid.Empty;
+    public string CustomerPhoneNumber { get; set; } = string.Empty;
+    public List<OrderedItemRequest> OrderedItems { get; set; } = [];
 }
 
 public class OrderedItemRequest

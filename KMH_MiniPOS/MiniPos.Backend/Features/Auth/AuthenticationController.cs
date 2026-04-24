@@ -72,13 +72,13 @@ public class AuthenticationController : ControllerBase
         return Ok(new { message = "Logged out successfully" });
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("refresh")]
     public async Task<IActionResult> Refresh()
     {
         if (!Request.Cookies.TryGetValue(XRefreshToken, out var refreshToken))
         {
-            return Unauthorized("Refresh token missing");
+            return Unauthorized(new { Message = "Refresh token missing" });
         }
 
         var result = await _authService.Refresh(new RefreshRequest

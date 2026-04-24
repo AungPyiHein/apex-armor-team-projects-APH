@@ -57,7 +57,7 @@ public class BranchInventoryService : IBranchInventoryService
                     StockQuantity = inventory.StockQuantity
                 })
                 .ToListAsync();
-            
+
             var result =
                 new PagedResult<BranchInventoryListResponse>(items, totalCount, request.PageNumber,
                     request.PageSize);
@@ -130,7 +130,7 @@ public class BranchInventoryService : IBranchInventoryService
                 ProductId = request.ProductId,
                 StockQuantity = request.StockQuantity
             };
-            
+
             await _db.BranchInventories.AddAsync(branchInventory);
             await _db.SaveChangesAsync();
             return Result.Success();

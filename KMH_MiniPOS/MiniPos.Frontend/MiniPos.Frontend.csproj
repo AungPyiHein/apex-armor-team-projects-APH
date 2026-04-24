@@ -13,4 +13,8 @@
         <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
     </ItemGroup>
 
+<!--    <Target Name="Tailwind" BeforeTargets="Build">-->
+<!--        <Exec Command="bash -c 's ource ~/.nvm/nvm.sh &amp;&amp; npx @tailwindcss/cli -i wwwroot/css/app.css -o wwwroot/css/app.min.css'" />-->
+<!--    </Target>-->
+
 </Project>

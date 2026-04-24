@@ -15,7 +15,7 @@ public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;
     private readonly IUserService _userService;
-    
+
     public ProfileController(IProfileService profileService, IUserService userService)
     {
         _profileService = profileService;
@@ -27,7 +27,7 @@ public class ProfileController : ControllerBase
     {
         var userId = User.GetUserId();
         var result = await _profileService.GetProfile(userId);
-        
+
         if (result.IsSuccess)
             return Ok(result.Data);
 
@@ -45,9 +45,9 @@ public class ProfileController : ControllerBase
             ProcessedById = User.GetUserId(),
             UserId = User.GetUserId(),
         };
-        
+
         var result = await _userService.Update(req);
-        
+
         if (result.IsSuccess)
             return Ok();
 
@@ -72,7 +72,7 @@ public class ProfileController : ControllerBase
 
         if (result.IsSuccess)
             return Ok();
-        
+
         var statusCode = ErrorHttpMapper.GetStatusCode(result.Error!);
         return StatusCode(statusCode, new { message = result.Error?.Message });
     }

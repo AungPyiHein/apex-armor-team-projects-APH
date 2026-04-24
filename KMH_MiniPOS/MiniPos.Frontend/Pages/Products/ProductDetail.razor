@@ -185,7 +185,7 @@
                     _editSku = _product.Sku;
                     _editPrice = _product.Price;
 
-                    await LoadCategoryData(_product.Category.Id);
+                    _categoryName = _product.Category.Name;
                     _ui = GetProductUI(_product);
                 }
             }
@@ -196,6 +196,7 @@
         }
         catch (Exception ex)
         {
+            Console.WriteLine(ex.Message);
             await Notification.ShowError($"Error loading product: {ex.Message}");
         }
     }

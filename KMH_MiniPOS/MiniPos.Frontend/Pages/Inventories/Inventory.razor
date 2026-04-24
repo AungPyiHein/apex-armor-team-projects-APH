@@ -1,15 +1,16 @@
 @page "/inventory"
 @using MiniPos.Frontend.Shared.Types
 @inject NotificationService Notification
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
 
 <PageTitle>Master Inventory - MiniPOS</PageTitle>
 
 <PageHeader Title="Inventory"
             Subtitle="Monitor and manage stock across all branch locations"
             SearchPlaceholder="Search inventory..."
-            @bind-SearchTerm="_searchTerm"
+            @bind-SearchTerm="SearchTerm"
             @bind-ViewMode="_viewMode"
-            OnSearch="LoadData">
+            OnSearch="@HandleSearchTermChanged">
     <Filters>
         <!-- Branch Selector -->
         <div class="relative group/branch">
@@ -217,11 +218,15 @@
             </div>
         }
 
-        <Pagination CurrentPage="_currentPage"
+        <Pagination CurrentPage="@CurrentPage"
                     TotalPages="@(_pagedInventories?.TotalPages ?? 1)"
                     TotalCount="@(_pagedInventories?.TotalCount ?? 0)"
-                    PageSize="_pageSize"
-                    PageChanged="HandlePageChanged"/>
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedInventories?.TotalPages ?? 1)"/>
     }
 </div>
 
@@ -241,15 +246,17 @@
     private List<Branch> _branches = new();
     private List<Merchant> _merchants = new();
 
-    private string _searchTerm = "";
     private string _viewMode = "grid";
     private Guid? _selectedBranchId;
     private Guid? _selectedCategoryId;
     private Guid? _selectedMerchantId;
 
-    private int _currentPage = 1;
-    private readonly int _pageSize = 12;
     private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,10 +267,10 @@
     {
         try
         {
-            var response = await Http.GetAsync("api/merchants?pageSize=100");
+            var response = await Http.GetAsync("api/merchants");
             if (!response.IsSuccessStatusCode)
             {
-                await Notification.ShowError("Failed to load merchants.");
+                Notification.ShowError("Failed to load merchants.");
                 return;
             }
 
@@ -277,7 +284,7 @@
         }
         catch (Exception ex)
         {
-            await Notification.ShowError(ex.Message);
+            Notification.ShowError(ex.Message);
         }
     }
 
@@ -285,18 +292,17 @@
     {
         try
         {
-            var branchUrl = $"api/branches?MerchantId={_selectedMerchantId}&pageSize=100";
+            var branchUrl = $"api/branches?MerchantId={_selectedMerchantId}";
             var branchesResp = await Http.GetFromJsonAsync<PagedResult<Branch>>(branchUrl);
             _branches = branchesResp?.Data;
-            Console.WriteLine(_branches[0].Id);
 
-            var categoryUrl = $"api/categories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId}";
+            var categoryUrl = $"api/categories?merchantId={_selectedMerchantId}";
             var categoriesResp = await Http.GetFromJsonAsync<PagedResult<Category>>(categoryUrl);
             _categories = categoriesResp?.Data;
         }
         catch (Exception ex)
         {
-            await Notification.ShowError(ex.Message);
+            Notification.ShowError(ex.Message);
         }
     }
 
@@ -304,10 +310,8 @@
     {
         if (_selectedMerchantId == null)
         {
-            {
-                Clear();
-                return;
-            }
+            Clear();
+            return;
         }
 
         _isLoading = true;
@@ -315,16 +319,19 @@
 
         try
         {
-            var url = $"api/inventories?page={_currentPage}&pageSize={_pageSize}&merchantId={_selectedMerchantId.Value}";
-
-            if (!string.IsNullOrEmpty(_searchTerm)) url += $"&searchTerm={Uri.EscapeDataString(_searchTerm)}";
-            if (_selectedBranchId.HasValue && _selectedBranchId != Guid.Empty) url += $"&branchId={_selectedBranchId.Value}";
-            if (_selectedCategoryId.HasValue) url += $"&categoryId={_selectedCategoryId.Value}";
+            var url = $"api/inventories" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
+                      $"&merchantId={_selectedMerchantId}";
+            
+            if (_selectedBranchId != null) url += $"&branchId={_selectedBranchId.Value}";
+            if (_selectedCategoryId != null) url += $"&categoryId={_selectedCategoryId.Value}";
 
             var response = await Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
-                await Notification.ShowError("Failed to load inventories.");
+                Notification.ShowError("Failed to load inventories.");
                 return;
             }
 
@@ -332,20 +339,13 @@
         }
         catch (Exception ex)
         {
-            await Notification.ShowError(ex.Message);
+            Notification.ShowError(ex.Message);
         }
         finally
         {
             _isLoading = false;
-            StateHasChanged();
             await JSRuntime.InvokeVoidAsync("initIcons");
         }
-    }
-
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        await LoadData();
     }
 
     private InventoryUI GetInventoryUI(BranchInventoryListResponse item)

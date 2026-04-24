@@ -41,7 +41,7 @@ public class ProductService : IProductService
             var skip = (request.PageNumber - 1) * request.PageSize;
             var take = request.PageSize;
             var totalCount = await query.CountAsync();
-            
+
             var products = await query
                 .OrderByDescending(p => p.CreatedAt)
                 .Skip(skip)
@@ -88,6 +88,16 @@ public class ProductService : IProductService
                     Sku = p.Sku,
                     Price = p.Price,
                     CreatedAt = p.CreatedAt,
+                    Category = new CategoryDto
+                    {
+                        Id = p.CategoryId,
+                        Name = p.Category.Name,
+                    },
+                    Merchant = new MerchantDto
+                    {
+                        Id = p.MerchantId,
+                        Name = p.Merchant.Name,
+                    }
                 })
                 .FirstOrDefaultAsync();
 
@@ -132,7 +142,7 @@ public class ProductService : IProductService
             await _db.Products.AddAsync(product);
             var result = await _db.SaveChangesAsync();
 
-            return result > 0 
+            return result > 0
                 ? Result<ProductCreateResponse>.Success(new ProductCreateResponse { Id = product.Id })
                 : Result<ProductCreateResponse>.Failure(new InternalError("Product.Create", "Failed to create product"));
         }
@@ -175,7 +185,7 @@ public class ProductService : IProductService
             product.UpdatedAt = DateTime.UtcNow;
 
             var result = await _db.SaveChangesAsync();
-            return result > 0 
+            return result > 0
                 ? Result.Success()
                 : Result.Failure(new InternalError("Product.Update", "Failed to update product"));
         }
@@ -247,6 +257,7 @@ public class ProductGetByIdResponse
     public decimal Price { get; set; }
     public DateTime? CreatedAt { get; set; }
     public MerchantDto? Merchant { get; set; }
+    public CategoryDto? Category { get; set; }
 }
 
 public class ProductCreateRequest

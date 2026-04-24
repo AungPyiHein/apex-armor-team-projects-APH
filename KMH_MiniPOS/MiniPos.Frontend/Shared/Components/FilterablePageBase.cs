@@ -12,32 +12,34 @@ public abstract class FilterablePageBase : ComponentBase
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "page")]
-    public int CurrentPage { get; set; }
+    public int CurrentPage { get; set; } = 1;
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "size")]
-    public int PageSize { get; set; }
+    public int PageSize { get; set; } = 10;
 
-    protected void AppendUrl(string key, object? value)
+    private Dictionary<string, object?> DefaultQuery(string term = "", int page = 1, int size = 10)
     {
-        var queryParameters = new Dictionary<string, object?>
+        return new Dictionary<string, object?>
         {
-            { key, value }
+            { "q", term },
+            { "page", page },
+            { "size", size }
         };
-        var newUrl = Navigation.GetUriWithQueryParameters(queryParameters);
+    }
+
+    protected void AppendQuery(string key, object? value)
+    {
+        var queries = DefaultQuery();
+        queries.Add(key, value);
+        var newUrl = Navigation.GetUriWithQueryParameters(queries);
         Navigation.NavigateTo(newUrl, replace: false);
     }
-    
-    protected void UpdateUrlState(string? term, int page, int size)
-    {
-        var queryParameters = new Dictionary<string, object?>
-        {
-            { "q", string.IsNullOrWhiteSpace(term) ? null : term },
-            { "page", page < 1 ? 1 : page },
-            { "size", size < 10 ? 10 : size }
-        };
 
-        var newUrl = Navigation.GetUriWithQueryParameters(queryParameters);
+    protected void UpdateUrlState(string term, int page, int size)
+    {
+        var queries = DefaultQuery();
+        var newUrl = Navigation.GetUriWithQueryParameters(queries);
         Navigation.NavigateTo(newUrl, replace: false);
     }
 
@@ -45,17 +47,17 @@ public abstract class FilterablePageBase : ComponentBase
     {
         UpdateUrlState(term, CurrentPage, PageSize);
     }
-    
+
     protected void HandlePageChanged(int page)
     {
         UpdateUrlState(SearchTerm, page, PageSize);
     }
-    
+
     protected void HandlePageSizeChanged(int size)
     {
         UpdateUrlState(SearchTerm, CurrentPage, size);
-    } 
-    
+    }
+
     protected void HandleNextPage()
     {
         UpdateUrlState(SearchTerm, CurrentPage + 1, PageSize);
