@@ -1,0 +1,521 @@
+@page "/profile"
+@inject NotificationService Notification
+@using MiniPos.Frontend.Components
+@using MiniPos.Frontend.Pages.Profile
+
+<PageTitle>@_profile?.UserName's Profile - MiniPOS</PageTitle>
+
+<div class="animate-slide-up space-y-12 pb-24">
+    @if (_profile == null)
+    {
+        <div class="flex items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+        </div>
+    }
+    else
+    {
+        <!-- Immersive Integrated Profile Banner (Custom Header Replacement) -->
+        <div
+            class="relative overflow-hidden rounded-[4rem] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-2xl shadow-primary/5 min-h-[420px] flex flex-col justify-center">
+            <!-- Dynamic Mesh Background -->
+            <div class="absolute inset-0 bg-gradient-to-br @_ui.BannerGradient opacity-[0.1] z-0"></div>
+            <div
+                class="absolute -top-32 -right-32 w-96 h-96 bg-primary/20 rounded-full blur-[100px] animate-pulse-subtle"></div>
+            <div
+                class="absolute -bottom-32 -left-32 w-80 h-80 bg-success/20 rounded-full blur-[100px] opacity-40"></div>
+
+            <!-- Custom Integrated Top Bar (Actions Only) -->
+            <div class="absolute top-10 right-10 z-20 flex gap-3">
+                <button
+                    class="group relative px-6 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-border/40 shadow-sm hover:border-primary/50 hover:bg-white transition-all duration-500 overflow-hidden"
+                    @onclick="OpenResetPasswordModal">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-r from-rose-500/5 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-700"></div>
+                    <div class="relative flex items-center gap-3">
+                        <i data-lucide="shield-check"
+                           class="w-4.5 h-4.5 text-rose-500 group-hover:rotate-12 transition-transform duration-500"></i>
+                        <span
+                            class="text-xs font-black uppercase tracking-widest text-foreground/80 group-hover:text-rose-600 transition-colors">Security</span>
+                    </div>
+                </button>
+                <button
+                    class="group relative px-6 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-border/40 shadow-sm hover:border-primary/50 hover:bg-white transition-all duration-500 overflow-hidden"
+                    @onclick="OpenEditProfileModal">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-700"></div>
+                    <div class="relative flex items-center gap-3">
+                        <i data-lucide="settings-2"
+                           class="w-4.5 h-4.5 text-primary group-hover:rotate-90 transition-transform duration-700"></i>
+                        <span
+                            class="text-xs font-black uppercase tracking-widest text-foreground/80 group-hover:text-primary transition-colors">Edit Identity</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Profile Info Body (Centered Within Banner) -->
+            <div class="relative z-10 px-12 flex flex-col md:flex-row items-center md:items-center gap-12 mt-4">
+                <!-- Avatar Container with Elevated Design -->
+                <div class="relative group">
+                    <div
+                        class="w-48 h-48 rounded-[3.5rem] bg-gradient-to-br @_ui.AvatarGradient flex items-center justify-center shadow-2xl shadow-primary/20 border-8 border-white transform transition-all group-hover:scale-[1.05] group-hover:-rotate-3 duration-700 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-white/20 backdrop-blur-[4px]"></div>
+                        <i data-lucide="@_ui.Icon"
+                           class="w-24 h-24 text-white drop-shadow-2xl relative z-10 opacity-90 group-hover:opacity-100 transition-opacity"></i>
+                    </div>
+                </div>
+
+                <!-- User Identification -->
+                <div class="flex-1 space-y-6 text-center md:text-left">
+                    <div class="space-y-1">
+                        <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
+                             <span
+                                 class="px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.25em] bg-white/80 border border-border/40 shadow-sm shadow-black/[0.02] @_ui.RoleColorClass">
+                                  @_profile.Role Member
+                             </span>
+                        </div>
+                        <h2 class="text-6xl font-black font-outfit tracking-tighter text-foreground drop-shadow-sm leading-none">@_profile.UserName</h2>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center md:justify-start gap-8 pt-2 mb-12">
+                        <div class="flex items-center gap-3 group/item">
+                            <div
+                                class="w-9 h-9 rounded-2xl bg-white/80 shadow-md flex items-center justify-center border border-border/40 group-hover/item:border-primary/40 group-hover/item:scale-110 transition-all duration-300">
+                                <i data-lucide="at-sign" class="w-4 h-4 text-primary opacity-60"></i>
+                            </div>
+                            <span
+                                class="text-sm font-bold text-muted-foreground/80 group-hover/item:text-foreground transition-colors">@_profile.Email</span>
+                        </div>
+                        <div class="flex items-center gap-3 group/item">
+                            <div
+                                class="w-9 h-9 rounded-2xl bg-white/80 shadow-md flex items-center justify-center border border-border/40 group-hover/item:border-primary/40 group-hover/item:scale-110 transition-all duration-300">
+                                <i data-lucide="clock" class="w-4 h-4 text-primary opacity-60"></i>
+                            </div>
+                            <span
+                                class="text-sm font-bold text-muted-foreground/80 group-hover/item:text-foreground transition-colors">Partner since @_profile.CreatedAt.ToString("MMMM yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Context Center -->
+        <div class="max-w-4xl mx-auto w-full">
+            <!-- Merchant Detail Card (Minimalist & Centered) -->
+            <div
+                class="pos-card overflow-hidden group border-white/60 bg-white/40 backdrop-blur-md hover:border-warning/30 transition-all duration-500 rounded-[3rem] p-12 relative shadow-2xl shadow-black/[0.02]">
+                <div class="flex items-center gap-6 mb-10">
+                    <div
+                        class="w-20 h-20 rounded-[2rem] bg-warning/10 flex items-center justify-center text-warning border border-warning/10 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                        <i data-lucide="landmark" class="w-10 h-10"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-[11px] font-black text-muted-foreground/30 uppercase tracking-[0.4em] mb-1">
+                            Corporate Ecosystem</h4>
+                        <h3 class="text-3xl font-black font-outfit text-foreground tracking-tight">Associated
+                            Merchant</h3>
+                    </div>
+                </div>
+
+                @if (_profile.Merchant != null)
+                {
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div
+                            class="p-8 bg-white/80 rounded-[2rem] border border-white shadow-sm hover:translate-y-[-4px] transition-all duration-500">
+                            <p class="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em] mb-2 text-warning">
+                                Business Identity</p>
+                            <span class="text-xl font-black font-outfit text-foreground">@_profile.Merchant.Name</span>
+                        </div>
+                        <div
+                            class="p-8 bg-white/80 rounded-[2rem] border border-white shadow-sm hover:translate-y-[-4px] transition-all duration-500">
+                            <p class="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em] mb-2 text-warning">
+                                Public Contact</p>
+                            <span class="text-lg font-bold text-foreground">@_profile.Merchant.ContactEmail</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div
+                        class="py-20 flex flex-col items-center justify-center text-center opacity-30 border-4 border-dashed border-border/40 rounded-[2rem] bg-muted/5">
+                        <i data-lucide="building" class="w-16 h-16 mb-4"></i>
+                        <p class="text-sm font-black uppercase tracking-[0.25em]">No validated merchant entity
+                            detected</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Premium Edit Identity Prompt Box -->
+@if (_showEditModal)
+{
+    <div class="fixed inset-0 z-[100] flex items-center justify-center">
+        <!-- Minimalist Backdrop -->
+        <div class="absolute inset-0 bg-slate-950/30 backdrop-blur-[8px] animate-fade-in"
+             @onclick="() => _showEditModal = false"></div>
+
+        <!-- Prompt Box -->
+        <div
+            class="relative w-full max-w-[480px] mx-4 bg-white shadow-[0_64px_256px_-32px_rgba(0,0,0,0.2)] rounded-[3rem] border border-white overflow-hidden animate-scale-in">
+            <!-- Glass Header -->
+            <div class="px-10 pt-10 pb-5 border-b border-border/30 flex justify-between items-center bg-muted/5">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-3 h-3 rounded-full bg-primary animate-pulse shadow-[0_0_12px_rgba(var(--primary),0.6)]"></div>
+                    <h3 class="text-2xl font-black font-outfit text-foreground tracking-tight">Account Redesign</h3>
+                </div>
+                <button
+                    class="w-10 h-10 rounded-full hover:bg-rose-50 text-muted-foreground/40 hover:text-rose-500 transition-all active:scale-90 flex items-center justify-center"
+                    @onclick="() => _showEditModal = false">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-10">
+                <p class="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-10 leading-relaxed">
+                    Modify your public identifiers. These changes will propagate across your operational profile.</p>
+
+                <div class="space-y-8">
+                    <!-- High Density Input: Name -->
+                    <div class="space-y-4">
+                        <label class="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.35em] ml-2">Display
+                            Name</label>
+                        <div class="relative group">
+                            <input type="text" @bind="_editUserName"
+                                   class="w-full px-8 py-4.5 bg-muted/20 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-[1.75rem] text-[16px] font-black font-outfit outline-none transition-all placeholder:text-muted-foreground/20 shadow-inner"
+                                   placeholder="Enter identifier..."/>
+                        </div>
+                    </div>
+
+                    <!-- High Density Input: Email -->
+                    <div class="space-y-4">
+                        <label class="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.35em] ml-2">Communication
+                            Email</label>
+                        <div class="relative group">
+                            <input type="email" @bind="_editEmail"
+                                   class="w-full px-8 py-4.5 bg-muted/20 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-[1.75rem] text-[16px] font-black font-outfit outline-none transition-all placeholder:text-muted-foreground/20 shadow-inner"
+                                   placeholder="Enter email..."/>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Actions -->
+                    <div class="grid grid-cols-2 gap-4 pt-4">
+                        <button
+                            class="py-5 rounded-[1.75rem] border border-border/60 text-xs font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 transition-all active:scale-95 shadow-sm"
+                            @onclick="() => _showEditModal = false">
+                            Cancel
+                        </button>
+                        <button
+                            class="relative py-5 bg-primary rounded-[1.75rem] text-xs font-black uppercase tracking-widest text-white shadow-2xl shadow-primary/30 hover:shadow-primary/50 hover:translate-y-[-2px] transition-all active:scale-95 group overflow-hidden"
+                            @onclick="HandleEditProfile" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting)
+                            {
+                                <div class="absolute inset-0 bg-primary flex items-center justify-center z-10">
+                                    <div
+                                        class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                </div>
+                            }
+                            <span
+                                class="relative z-0 group-hover:scale-105 transition-transform inline-block">Save</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Prompt Footer Footer -->
+                <div class="mt-10 pt-8 border-t border-border/30 flex items-center justify-center gap-2 opacity-50">
+                    <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-warning"></i>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ephemeral Session Sync Only</span>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Premium Reset Password Prompt Box -->
+@if (_showPasswordModal)
+{
+    <div class="fixed inset-0 z-[100] flex items-center justify-center">
+        <!-- High Security Backdrop -->
+        <div class="absolute inset-0 bg-slate-950/40 backdrop-blur-[12px] animate-fade-in"
+             @onclick="() => _showPasswordModal = false"></div>
+
+        <!-- Prompt Box -->
+        <div
+            class="relative w-full max-w-[480px] mx-4 bg-white shadow-[0_64px_256px_-32px_rgba(0,0,0,0.3)] rounded-[3rem] border border-white overflow-hidden animate-scale-in">
+            <!-- Glass Header -->
+            <div class="px-10 pt-10 pb-5 border-b border-border/30 flex justify-between items-center bg-muted/5">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-3 h-3 rounded-full bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]"></div>
+                    <h3 class="text-2xl font-black font-outfit text-foreground tracking-tight">Update Password</h3>
+                </div>
+                <button
+                    class="w-10 h-10 rounded-full hover:bg-rose-50 text-muted-foreground/40 hover:text-rose-500 transition-all active:scale-90 flex items-center justify-center"
+                    @onclick="() => _showPasswordModal = false">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-10">
+                <div class="flex items-center gap-4 mb-10 p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-rose-500 shadow-sm">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </div>
+                    <p class="text-[11px] font-bold text-rose-800 uppercase tracking-widest leading-none">Password
+                        Lifecycle Update</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- High Density Input: Old Password -->
+                    <div class="space-y-3">
+                        <label class="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.35em] ml-2">Current
+                            Password</label>
+                        <div class="relative group">
+                            <input type="password" @bind="_oldPassword"
+                                   class="w-full px-8 py-4 bg-muted/20 border-2 border-transparent focus:border-rose-300/30 focus:bg-white rounded-[1.5rem] text-[16px] font-black outline-none transition-all placeholder:text-muted-foreground/20 shadow-inner"
+                                   placeholder="••••••••"/>
+                        </div>
+                    </div>
+
+                    <!-- High Density Input: New Password -->
+                    <div class="space-y-3">
+                        <label class="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.35em] ml-2">New
+                            Password</label>
+                        <div class="relative group">
+                            <input type="password" @bind="_newPassword"
+                                   class="w-full px-8 py-4 bg-muted/20 border-2 border-transparent focus:border-rose-300/30 focus:bg-white rounded-[1.5rem] text-[16px] font-black outline-none transition-all placeholder:text-muted-foreground/20 shadow-inner"
+                                   placeholder="••••••••"/>
+                        </div>
+                    </div>
+
+                    <!-- High Density Input: Confirm Password -->
+                    <div class="space-y-3">
+                        <label class="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.35em] ml-2">Verify
+                            Password</label>
+                        <div class="relative group">
+                            <input type="password" @bind="_confirmPassword"
+                                   class="w-full px-8 py-4 bg-muted/20 border-2 border-transparent focus:border-rose-300/30 focus:bg-white rounded-[1.5rem] text-[16px] font-black outline-none transition-all placeholder:text-muted-foreground/20 shadow-inner"
+                                   placeholder="••••••••"/>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Actions -->
+                    <div class="grid grid-cols-2 gap-4 pt-6">
+                        <button
+                            class="py-5 rounded-[1.75rem] border border-border/60 text-xs font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 transition-all active:scale-95 shadow-sm"
+                            @onclick="() => _showPasswordModal = false">
+                            Abort
+                        </button>
+                        <button
+                            class="relative py-5 bg-rose-500 rounded-[1.75rem] text-xs font-black uppercase tracking-widest text-white shadow-2xl shadow-rose-500/30 hover:shadow-rose-500/50 hover:translate-y-[-2px] transition-all active:scale-95 group overflow-hidden"
+                            @onclick="HandleResetPassword" disabled="@_isActionSubmitting">
+                            @if (_isActionSubmitting)
+                            {
+                                <div class="absolute inset-0 bg-rose-500 flex items-center justify-center z-10">
+                                    <div
+                                        class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                </div>
+                            }
+                            <span
+                                class="relative z-0 group-hover:scale-105 transition-transform inline-block">Save</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private ProfileModel? _profile;
+    private DetailUI _ui = new();
+    private bool _showEditModal = false;
+    private bool _showPasswordModal = false;
+    private string _editUserName = "";
+    private string _editEmail = "";
+    private string _oldPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private bool _isActionSubmitting = false;
+
+    private class DetailUI
+    {
+        public string BadgeClass { get; set; } = "bg-muted text-muted-foreground";
+        public string Icon { get; set; } = "user";
+        public string AvatarGradient { get; set; } = "from-slate-400 to-slate-500";
+        public string BannerGradient { get; set; } = "from-slate-400 to-slate-600";
+        public string RoleColorClass { get; set; } = "text-muted-foreground";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        try
+        {
+            _profile = await Http.GetFromJsonAsync<ProfileModel>("api/profile");
+            if (_profile != null)
+            {
+                _ui = _profile.Role switch
+                {
+                    "Merchant" => new DetailUI
+                    {
+                        BadgeClass = "badge-warning",
+                        Icon = "briefcase",
+                        AvatarGradient = "from-amber-400 to-orange-500",
+                        BannerGradient = "from-amber-500 via-orange-500 to-yellow-600",
+                        RoleColorClass = "text-warning"
+                    },
+                    "Admin" => new DetailUI
+                    {
+                        BadgeClass = "badge-primary",
+                        Icon = "shield-check",
+                        AvatarGradient = "from-primary to-purple-600",
+                        BannerGradient = "from-primary via-purple-600 to-indigo-700",
+                        RoleColorClass = "text-primary"
+                    },
+                    _ => new DetailUI
+                    {
+                        Icon = "user",
+                        AvatarGradient = "from-slate-400 to-slate-600",
+                        BannerGradient = "from-slate-500 via-slate-600 to-slate-700",
+                        RoleColorClass = "text-muted-foreground"
+                    }
+                };
+                _editUserName = _profile.UserName ?? "";
+                _editEmail = _profile.Email ?? "";
+            }
+        }
+        catch (Exception e)
+        {
+            await Notification.ShowError($"Error loading profile: {e.Message}");
+        }
+        finally
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private void OpenEditProfileModal()
+    {
+        _showEditModal = true;
+        _editUserName = _profile?.UserName ?? "";
+        _editEmail = _profile?.Email ?? "";
+        StateHasChanged();
+        JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+    private void OpenResetPasswordModal()
+    {
+        _showPasswordModal = true;
+        _oldPassword = "";
+        _newPassword = "";
+        _confirmPassword = "";
+        StateHasChanged();
+        JSRuntime.InvokeVoidAsync("initIcons");
+    }
+
+    private async Task HandleEditProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_editUserName)) return;
+        _isActionSubmitting = true;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync(
+                "api/profile",
+                new
+                {
+                    Name = _editUserName,
+                    Email = _editEmail,
+                });
+            if (!response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UpdateProfileResponse>();
+                await Notification.ShowError(result?.Message ?? "Failed to update profile.");
+                return;
+            }
+
+            await Notification.ShowSuccess("Profile updated successfully!");
+
+            if (_profile != null)
+            {
+                _profile.UserName = _editUserName;
+                _profile.Email = _editEmail;
+            }
+        }
+        catch (Exception e)
+        {
+            await Notification.ShowError($"Update failed: {e.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+            _showEditModal = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task HandleResetPassword()
+    {
+        if (string.IsNullOrWhiteSpace(_oldPassword) || string.IsNullOrWhiteSpace(_newPassword) || _newPassword != _confirmPassword)
+        {
+             await Notification.ShowWarning("Please check your password entries. Ensure all fields are filled and new passwords match.");
+            return;
+        }
+
+        _isActionSubmitting = true;
+        try
+        {
+            var response = await Http.PutAsJsonAsync(
+                "api/profile/password",
+                new
+                {
+                    OldPassword = _oldPassword,
+                    NewPassword = _newPassword,
+                    ConfirmPassword = _confirmPassword,
+                });
+            if (!response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UpdateProfileResponse>();
+                await Notification.ShowError(result?.Message ?? "Failed to reset password.");
+                return;
+            }
+            
+            await Notification.ShowSuccess("Password updated successfully!");
+            _showPasswordModal = false;
+        }
+        catch (Exception e)
+        {
+            await Notification.ShowError($"Security update failed: {e.Message}");
+        }
+        finally
+        {
+            _isActionSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

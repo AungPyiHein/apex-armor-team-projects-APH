@@ -1,0 +1,356 @@
+@page "/sales"
+@using System.Web
+@inject NotificationService Notification
+@using MiniPos.Frontend.Shared.Types
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
+
+<PageTitle>Sales - MiniPOS</PageTitle>
+
+<PageHeader
+    Title="Transactions"
+    Subtitle="Monitor real-time sales and order history"
+    SearchPlaceholder="Search by ID or Total..."
+    @bind-SearchTerm="SearchTerm"
+    ShowViewToggle="false"
+    OnSearch="@HandleSearchTermChanged"
+>
+
+    <Filters>
+        <!-- Date Filters -->
+        <div class="flex items-center gap-2">
+            <div class="relative group">
+                <i data-lucide="calendar"
+                   class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+                <input type="date" @bind="_startDate" @bind:after="LoadData"
+                       class="bg-white border border-border/60 rounded-2xl text-[11px] font-bold py-2 pl-9 pr-3 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer"/>
+            </div>
+            <span class="text-muted-foreground text-xs font-bold">to</span>
+            <div class="relative group">
+                <i data-lucide="calendar"
+                   class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+                <input type="date" @bind="_endDate" @bind:after="LoadData"
+                       class="bg-white border border-border/60 rounded-2xl text-[11px] font-bold py-2 pl-9 pr-3 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer"/>
+            </div>
+        </div>
+
+        <!-- Merchant Filter -->
+        <div class="relative group">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Merchants</option>
+                @foreach (var mer in _merchants ?? new())
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+    </Filters>
+    <Actions>
+        <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+                @onclick='() => Navigation.NavigateTo("/orders")'>
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span class="font-black uppercase tracking-tight text-sm">New Sale</span>
+        </button>
+    </Actions>
+</PageHeader>
+
+<!-- Revenue Snapshot -->
+<div class="flex flex-wrap items-center gap-4 mb-6">
+    <div
+        class="flex items-center justify-between px-6 py-4 bg-white/60 backdrop-blur-md rounded-2xl border border-white/80 shadow-sm min-w-[240px]">
+        <div>
+            <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total Revenue</p>
+            <h3 class="text-2xl font-black text-primary font-outfit">
+                @_orders.Where(o => o != null).Sum(o => o.TotalAmount).ToString("N2") MMK
+            </h3>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <i data-lucide="banknote" class="w-5 h-5"></i>
+        </div>
+    </div>
+
+    <div
+        class="flex items-center justify-between px-6 py-4 bg-white/60 backdrop-blur-md rounded-2xl border border-white/80 shadow-sm min-w-[200px]">
+        <div>
+            <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Orders Count</p>
+            <h3 class="text-2xl font-black text-foreground font-outfit">@_totalCount</h3>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+        </div>
+    </div>
+
+    <!-- Quick Presets -->
+    <div class="flex bg-muted/20 p-1 rounded-2xl border border-border/40 shadow-sm ml-auto">
+        <button
+            class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all @(_activePreset == "today" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")"
+            @onclick='async () => await SelectPreset("today")'>Today
+        </button>
+        <button
+            class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all @(_activePreset == "7d" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")"
+            @onclick='async () => await SelectPreset("7d")'>7 Days
+        </button>
+        <button
+            class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all @(_activePreset == "30d" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")"
+            @onclick='async () => await SelectPreset("30d")'>30 Days
+        </button>
+    </div>
+</div>
+
+<div
+    class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-0">
+    @if (_isLoading && !_orders.Any())
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Loading
+                transactions...</p>
+        </div>
+    }
+    else if (!_orders.Any())
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 text-center">
+            <div class="w-20 h-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+                <i data-lucide="receipt" class="w-10 h-10 text-muted-foreground/30"></i>
+            </div>
+            <h3 class="text-xl font-black text-foreground">No transactions found</h3>
+            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Adjust your filters or try a different date
+                range.</p>
+        </div>
+    }
+    else
+    {
+        <div class="overflow-x-auto flex-1 stylish-scrollbar">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-muted/10 border-b border-border/30 sticky top-0 z-30 backdrop-blur-md">
+                <tr>
+                    <th class="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Order
+                        ID
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Timestamp
+                    </th>
+                    @* <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Customer</th> *@
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Items
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Total Amount
+                    </th>
+                    <th class="pr-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Actions
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-border/10">
+                @foreach (var order in _orders)
+                {
+                    <tr
+                        @onclick='() => Navigation.NavigateTo($"/sales/{order.Id}")'
+                        class="group hover:bg-white/40 transition-colors"
+                    >
+                        <td class="pl-8 py-4">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+                                    <i data-lucide="hash" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <span
+                                    class="font-black font-outfit text-sm">#@order.Id.ToString().Substring(0, 8)</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span
+                                    class="text-sm font-bold text-foreground">@order.OrderDate.ToString("MMM dd, yyyy")</span>
+                                <span
+                                    class="text-[10px] text-muted-foreground font-medium">@order.OrderDate.ToString("hh:mm tt")</span>
+                            </div>
+                        </td>
+                        @* <td class="px-6 py-4"> *@
+                        @*     <div class="flex items-center gap-2"> *@
+                        @*         <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500"> *@
+                        @*             <i data-lucide="user" class="w-3 h-3"></i> *@
+                        @*         </div> *@
+                        @*         <span class="text-sm font-medium text-foreground">Walking Customer</span> *@
+                        @*     </div> *@
+                        @* </td> *@
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-1.5">
+                                <span
+                                    class="px-2 py-0.5 bg-muted rounded-md text-[10px] font-bold text-muted-foreground">@order.OrderItems.Sum(i => i.Quantity) Units</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <span
+                                class="text-base font-black font-outfit text-primary tracking-tight">@order.TotalAmount.ToString("N2") MMK</span>
+                        </td>
+                        <td class="px-6 py-4 flex justify-end">
+                            <button
+                                class="w-9 h-9 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90"
+                                @onclick='() => Navigation.NavigateTo($"/sales/{order.Id}")'>
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <Pagination CurrentPage="@CurrentPage"
+                    TotalPages="@(_pagedSales?.TotalPages ?? 1)"
+                    TotalCount="@(_pagedSales?.TotalCount ?? 0)"
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedSales?.TotalPages ?? 1)"/>
+    }
+</div>
+
+<style>
+    .stylish-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .stylish-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .stylish-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+    }
+
+    .stylish-scrollbar:hover::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private bool _isLoading = true;
+    private List<Order> _orders = new();
+    private int _totalCount = 0;
+    private List<Merchant>? _merchants;
+    private Guid? _selectedMerchantId;
+
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string _activePreset = "";
+    private PagedResult<Order>? _pagedSales;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_startDate != null) await LoadData();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMerchants();
+        await SelectPreset("30d");
+    }
+
+    private async Task LoadMerchants()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<PagedResult<Merchant>>("api/merchants?pageSize=100");
+            _merchants = result?.Data;
+
+            // Auto-select first merchant if available and none selected
+            if (_selectedMerchantId == null && _merchants?.Any() == true)
+            {
+                _selectedMerchantId = _merchants.First().Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+    }
+
+    private async Task SelectPreset(string preset)
+    {
+        _activePreset = preset;
+        _endDate = DateTime.Today;
+
+        switch (preset)
+        {
+            case "today":
+                _startDate = DateTime.Today;
+                break;
+            case "7d":
+                _startDate = DateTime.Today.AddDays(-7);
+                break;
+            case "30d":
+                _startDate = DateTime.Today.AddDays(-30);
+                break;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (_selectedMerchantId == null)
+        {
+            _pagedSales = null;
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var query = new List<string>
+            {
+                $"searchTerm= {SearchTerm}",
+                $"pageNumber={CurrentPage}",
+                $"pageSize={PageSize}",
+                $"merchantId={_selectedMerchantId}",
+            };
+            if (_startDate.HasValue) query.Add($"startDate={_startDate.Value:yyyy-MM-dd}");
+            if (_endDate.HasValue) query.Add($"endDate={_endDate.Value:yyyy-MM-dd}T23:59:59");
+
+            var queryString = "?" + string.Join("&", query);
+            var result = await Http.GetFromJsonAsync<PagedResult<Order>>($"api/orders{queryString}");
+
+            if (result != null)
+            {
+                _pagedSales = result;
+                _orders = result.Data;
+                _totalCount = result.TotalCount;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+            _orders = new List<Order>();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

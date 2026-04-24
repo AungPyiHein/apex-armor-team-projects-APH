@@ -1,0 +1,280 @@
+@page "/sales/{OrderId:guid}"
+@inject NotificationService Notification
+
+<PageTitle>Sale Detail - MiniPOS</PageTitle>
+
+<PageHeader Title="Sale Detail"
+            Subtitle="@($"Viewing transaction #{OrderId.ToString().Substring(0, 8)}")"
+            ShowSearch="false"
+            ShowViewToggle="false">
+    <Actions>
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick='() => Navigation.NavigateTo("/sales")'>
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Sales</span>
+        </button>
+        <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+                @onclick="HandlePrint">
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            <span class="font-black uppercase tracking-tight text-sm">Print Receipt</span>
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up">
+    @if (_isLoading)
+    {
+        <div
+            class="lg:col-span-3 flex flex-col items-center justify-center p-32 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem]">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Fetching transaction
+                details...</p>
+        </div>
+    }
+    else if (_error != null)
+    {
+        <div
+            class="lg:col-span-3 flex flex-col items-center justify-center p-32 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] text-center">
+            <div class="w-20 h-20 bg-destructive/10 rounded-3xl flex items-center justify-center mb-6 text-destructive">
+                <i data-lucide="alert-circle" class="w-10 h-10"></i>
+            </div>
+            <h3 class="text-xl font-black text-foreground">Failed to load detail</h3>
+            <p class="text-muted-foreground mt-2 max-w-sm">@_error</p>
+            <button class="mt-6 btn btn-outline" @onclick="LoadOrder">Try Again</button>
+        </div>
+    }
+    else if (_order != null)
+    {
+        <!-- Left Column: Order Items & Overview -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Items Table Card -->
+            <div
+                class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2.5rem] shadow-2xl shadow-primary/5 p-8 flex flex-col h-full">
+                <div class="flex items-center justify-between mb-8">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/10">
+                            <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-black text-foreground font-outfit uppercase tracking-tight">Ordered
+                                Items</h3>
+                            <p class="text-xs font-bold text-muted-foreground uppercase opacity-60">@_order.OrderItems.Count products
+                                in this sale</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto stylish-scrollbar flex-1">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                        <tr class="border-b border-border/20">
+                            <th class="pb-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Product Details
+                            </th>
+                            <th class="pb-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">
+                                Qty
+                            </th>
+                            <th class="pb-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                                Unit Price
+                            </th>
+                            <th class="pb-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                                Subtotal
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border/10">
+                        @foreach (var item in _order.OrderItems)
+                        {
+                            <tr class="group">
+                                <td class="py-5">
+                                    <div class="flex items-center gap-4">
+                                        <div
+                                            class="w-10 h-10 rounded-xl bg-slate-100/50 flex items-center justify-center text-slate-400 group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                                            <i data-lucide="package" class="w-5 h-5"></i>
+                                        </div>
+                                        <span
+                                            class="font-bold text-foreground text-sm tracking-tight">@item.ProductName</span>
+                                    </div>
+                                </td>
+                                <td class="py-5 text-center">
+                                    <span
+                                        class="px-2.5 py-1 bg-muted rounded-lg text-[11px] font-bold text-muted-foreground border border-border/20">@item.Quantity</span>
+                                </td>
+                                <td class="py-5 text-right font-bold text-slate-600 text-sm">@item.UnitPrice.ToString("N0")</td>
+                                <td class="py-5 text-right font-black text-foreground font-outfit text-sm">@item.SubTotal.ToString("N0") MMK</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals Section -->
+                <div class="mt-8 pt-8 border-t-2 border-dashed border-border/20">
+                    <div class="flex flex-col items-end gap-3">
+                        <div class="flex items-center gap-12 text-muted-foreground">
+                            <span class="text-[10px] font-black uppercase tracking-widest">Subtotal Amount</span>
+                            <span class="text-sm font-bold">@_order.TotalAmount.ToString("N2") MMK</span>
+                        </div>
+                        <div class="flex items-center gap-12 text-muted-foreground">
+                            <span class="text-[10px] font-black uppercase tracking-widest">Tax & Fees (0%)</span>
+                            <span class="text-sm font-bold">0.00 MMK</span>
+                        </div>
+                        <div class="flex items-center gap-12 mt-2">
+                            <span class="text-xs font-black uppercase tracking-widest text-primary">Final Total</span>
+                            <span
+                                class="text-3xl font-black text-primary font-outfit tracking-tighter">@_order.TotalAmount.ToString("N2") MMK</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Context & Metadata -->
+        <div class="space-y-6">
+            <!-- Timeline & Status Card -->
+            <div
+                class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2.5rem] shadow-2xl shadow-primary/5 p-8">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="px-3 py-1 bg-success/10 rounded-full border border-success/20 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-success">Completed</span>
+                    </div>
+                    @* <span class="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">Verified Order</span> *@
+                </div>
+
+                <div class="space-y-8">
+                    <div class="flex gap-5">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-50">
+                                Transaction Date</p>
+                            <h4 class="text-sm font-black text-foreground">@_order.OrderDate.ToString("MMMM dd, yyyy")</h4>
+                            <p class="text-[11px] font-bold text-muted-foreground mt-0.5">
+                                at @_order.OrderDate.ToString("hh:mm tt (K)")</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-5">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+                            <i data-lucide="store" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-50">
+                                Branch Terminal</p>
+                            <h4 class="text-sm font-black text-foreground">@(_order.Branch?.Name ?? "Main Branch")</h4>
+                            <p class="text-[11px] font-bold text-muted-foreground mt-0.5">
+                                ID: @(_order.Branch?.Id.ToString().Substring(0, 8) ?? "N/A")</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-5">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-50">
+                                Processed By</p>
+                            <h4 class="text-sm font-black text-foreground">@(_order.ProcessedBy?.Username ?? "System")</h4>
+                            <p class="text-[11px] font-bold text-muted-foreground mt-0.5">Role: Merchant</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promotion / Loyalty Card (Static mockup) -->
+            @* <div class="bg-primary/5 border border-primary/10 rounded-[2.5rem] p-8 overflow-hidden relative group"> *@
+            @*     <div class="relative z-10"> *@
+            @*         <h3 class="text-sm font-black text-primary uppercase tracking-tight mb-2">Customer Rewards</h3> *@
+            @*         <p class="text-[11px] text-primary/60 font-medium leading-relaxed">This transaction earned the customer <span class="font-bold text-primary">50 loyalty points</span>. Available at participating branches.</p> *@
+            @*     </div> *@
+            @*     <i data-lucide="sparkles" class="w-20 h-20 absolute -bottom-5 -right-5 text-primary opacity-[0.03] group-hover:scale-110 transition-transform duration-500"></i> *@
+            @* </div> *@
+        </div>
+    }
+</div>
+
+<style>
+    .stylish-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .stylish-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .stylish-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+    }
+
+    .stylish-scrollbar:hover::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private bool _isLoading = true;
+    private string? _error;
+    private OrderDetail? _order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrder();
+    }
+
+    private async Task LoadOrder()
+    {
+        _isLoading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.GetAsync($"api/orders/{OrderId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load order details.");
+                return;
+            }
+
+            _order = await response.Content.ReadFromJsonAsync<OrderDetail>();
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private async Task HandlePrint()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

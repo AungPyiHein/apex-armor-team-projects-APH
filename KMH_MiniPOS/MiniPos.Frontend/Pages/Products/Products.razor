@@ -1,0 +1,394 @@
+@page "/products"
+@inject NotificationService Notification
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
+@using MiniPos.Frontend.Shared.Types
+
+<PageTitle>Products - MiniPOS</PageTitle>
+
+<PageHeader
+    Title="Product Catalog"
+    Subtitle="Centrally manage SKUs, pricing, and master catalog"
+    SearchPlaceholder="Quick search..."
+    @bind-SearchTerm="SearchTerm"
+    @bind-ViewMode="_viewMode"
+    OnSearch="@HandleSearchTermChanged"
+>
+
+    <Filters>
+        <div class="relative group">
+            <i data-lucide="filter"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedCategoryId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Categories</option>
+                @foreach (var cat in _categories)
+                {
+                    <option value="@cat.Id">@cat.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+
+        <div class="relative group">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Merchants</option>
+                @foreach (var mer in _merchants)
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+    </Filters>
+
+    <Actions>
+        <button
+            class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+            @onclick="GoToAddProduct">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span class="font-black uppercase tracking-tight text-sm">Add Product</span>
+        </button>
+    </Actions>
+
+</PageHeader>
+
+<!-- Floating Alert Box -->
+@if (!string.IsNullOrEmpty(_alertMessage))
+{
+    <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-down">
+        <div class="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md
+                @(_alertType == "success" ? "bg-emerald-50/90 border-emerald-200 text-emerald-800" : "bg-rose-50/90 border-rose-200 text-rose-800")">
+            <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+                    @(_alertType == "success" ? "bg-emerald-100" : "bg-rose-100")">
+                <i data-lucide="@(_alertType == "success" ? "check-circle" : "alert-circle")" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <p class="text-xs font-black uppercase tracking-widest opacity-60">@(_alertType == "success" ? "Success" : "Error")</p>
+                <p class="text-sm font-bold">@_alertMessage</p>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_pagedProducts == null)
+{
+    <div class="flex items-center justify-center p-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+}
+else
+{
+    @if (_viewMode == "grid")
+    {
+        <!-- Striking Product Cards Grid (Ultra Dense) -->
+        <div
+            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+            @foreach (var product in _pagedProducts.Data)
+            {
+                var ui = GetProductUI(product);
+
+                <div
+                    class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer relative rounded-2xl"
+                    @onclick="() => GoToProductDetail(product.Id)">
+                    <!-- Premium Mesh Background Pattern -->
+                    <div
+                        class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none @(ui.BgGlow)"
+                        style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+
+                    <!-- Visual Header (Mesh Gradient & Gem Icon) -->
+                    <div
+                        class="h-25 w-full bg-gradient-to-br @ui.Gradient relative overflow-hidden flex items-center justify-center border rounded-lg">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+
+                        <!-- Layered Mesh Orbs -->
+                        <div
+                            class="absolute -top-10 -right-10 w-28 h-28 @ui.BgGlow rounded-full blur-3xl opacity-60 animate-pulse-subtle"></div>
+                        <div
+                            class="absolute -bottom-10 -left-10 bg-white/20 rounded-full blur-3xl w-24 h-24 opacity-40"></div>
+
+                        <!-- Gem Icon Container -->
+                        <div
+                            class="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-foreground/80 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 z-10 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-white/40">
+                            <i data-lucide="@ui.Icon" class="w-5.5 h-5.5 @ui.TextColor drop-shadow-sm"></i>
+                        </div>
+
+                        <!-- Floating Category Badge -->
+                        <div class="absolute top-4 left-4">
+                                <span
+                                    class="badge bg-white/90 backdrop-blur-sm @ui.BadgeClass text-[10px] font-black uppercase tracking-widest shadow-sm rounded-full px-2.5 py-1 border border-border/20">
+                                    @product.Category.Name)
+                                </span>
+                        </div>
+                    </div>
+
+                    <!-- Content Section (Premium Concise) -->
+                    <div class="p-3 relative z-10">
+                        <div class="mb-0.5 flex justify-between items-start gap-1.5">
+                            <h3 class="font-bold text-[15px] tracking-tight text-foreground line-clamp-1 leading-snug group-hover:text-primary transition-colors font-outfit">@product.Name</h3>
+                        </div>
+                        <div class="flex items-center gap-1 mb-3 justify-between bg-danger">
+                                <span
+                                    class="text-[11px] font-bold text-muted-foreground/50 uppercase tracking-widest bg-muted/30 px-1.5 py-0.5 rounded-md">
+                                    @product.Sku
+                                </span>
+                            <span class="text-[19px] font-black font-outfit text-primary tracking-tight">
+                                    @product.Price <span class="text-[17px] ml-1 opacity-75 font-bold">MMK</span>
+                                </span>
+                        </div>
+
+                        <!-- Price Footer (Premium Concise) -->
+                        @* <div class="flex justify-between items-center pt-3 border-t border-border/40"> *@
+                        @*     <div class="flex items-center gap-1.5"> *@
+                        @*         <div *@
+                        @*             class="w-1.5 h-1.5 rounded-full bg-primary/40 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div> *@
+                        @*         <span *@
+                        @*             class="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Catalog Item</span> *@
+                        @*     </div> *@
+                        @*     <div class="text-right"> *@
+                        @*     <span class="text-[19px] font-black font-outfit text-primary tracking-tight"> *@
+                        @*         <span *@
+                        @*             class="text-[11px] mr-0.5 opacity-50 font-normal">$</span>@product.Price.ToString("F2") *@
+                        @*     </span> *@
+                        @*     </div> *@
+                        @* </div> *@
+                    </div>
+
+                    <!-- Hidden Hover Indicator -->
+                    <div
+                        class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Ultra-Concise List View -->
+        <div class="pos-card p-0 bg-white/60 shadow-xl border-border/40 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-muted/30 border-b border-border/30">
+                <tr>
+                    <th class="pl-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-12"></th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Product Detail
+                    </th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Category
+                    </th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Retail Price
+                    </th>
+                    <th class="pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Actions
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-border/20">
+                @foreach (var product in _pagedProducts.Data)
+                {
+                    var ui = GetProductUI(product);
+                    <tr class="group hover:bg-primary/[0.03] backdrop-blur-sm transition-all duration-300 cursor-pointer border-l-2 border-transparent hover:border-primary hover:translate-x-1"
+                        @onclick="() => GoToProductDetail(product.Id)">
+                        <td class="pl-6 py-2.5">
+                            <div
+                                class="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-border/60 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-sm shadow-primary/5">
+                                <i data-lucide="@ui.Icon" class="w-4.5 h-4.5 @ui.TextColor"></i>
+                            </div>
+                        </td>
+                        <td class="px-5 py-2.5">
+                            <div
+                                class="font-bold text-[14px] text-foreground font-outfit group-hover:text-primary transition-colors">@product.Name</div>
+                            <div
+                                class="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest leading-none mt-0.5">@product.Sku</div>
+                        </td>
+                        <td class="px-5 py-2.5">
+                                        <span
+                                            class="badge @ui.BgIcon @ui.TextColor text-[9px] font-black uppercase tracking-widest border-transparent py-1 px-2.5 rounded-lg shadow-sm shadow-black/5">
+                                            @product.Category.Name
+                                        </span>
+                        </td>
+                        <td class="px-5 py-2.5 text-right">
+                            <div class="text-base font-black font-outfit text-primary">
+                                        <span
+                                            class="text-[10px] mr-0.5 opacity-50">$</span>@product.Price.ToString("F2")
+                            </div>
+                        </td>
+                        <td class="pr-6 py-2.5 text-right">
+                            <button
+                                class="w-8 h-8 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary flex items-center justify-center transition-all ml-auto hover:rotate-90">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <Pagination CurrentPage="@CurrentPage"
+                    TotalPages="@(_pagedProducts?.TotalPages ?? 1)"
+                    TotalCount="@(_pagedProducts?.TotalCount ?? 0)"
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedProducts?.TotalPages ?? 1)"/>
+    }
+}
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    public class ProductUI
+    {
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "";
+        public string Gradient { get; set; } = "";
+        public string BadgeClass { get; set; } = "";
+        public string BgGlow { get; set; } = "";
+        public string BgIcon { get; set; } = "";
+        public string TextColor { get; set; } = "";
+    }
+
+    private PagedResult<Product>? _pagedProducts;
+    private List<Category> _categories = new();
+    private List<Merchant> _merchants = new();
+    private Guid? _selectedCategoryId;
+    private string _viewMode = "grid";
+    private Guid? _selectedMerchantId;
+
+    // Alert state
+    private string _alertMessage = "";
+    private string _alertType = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
+
+    private ProductUI GetProductUI(Product product)
+    {
+        var categoryName = product.Category.Name;
+        var hash = Math.Abs(categoryName.GetHashCode());
+
+        var icons = new[] { "folder", "bookmark", "box", "archive", "layers", "tag", "star", "package", "coffee", "utensils", "cup-soda", "ice-cream", "shopping-bag", "leaf", "croissant" };
+        var colors = new[] { "primary", "emerald", "orange", "indigo", "rose", "pink", "sky", "violet", "amber", "cyan", "fuchsia", "lime" };
+
+        var icon = icons[hash % icons.Length];
+        var color = colors[(hash + 3) % colors.Length];
+
+        string bgGlow = color == "primary" ? "bg-primary/20" : $"bg-{color}-500/20";
+        string bgIcon = color == "primary" ? "bg-primary/10" : $"bg-{color}-500/10";
+        string textColor = color == "primary" ? "text-primary" : $"text-{color}-600";
+        string gradient = color == "primary" ? "from-primary/20 to-primary/5" : $"from-{color}-500/20 to-{color}-500/5";
+
+        return new ProductUI
+        {
+            Icon = icon,
+            Color = color,
+            Gradient = gradient,
+            BadgeClass = textColor,
+            BgGlow = bgGlow,
+            BgIcon = bgIcon,
+            TextColor = textColor
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadMerchants();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Notification.ShowError($"Error during initialization: {ex.Message}", "error");
+        }
+    }
+
+    private async Task LoadData()
+    {
+        var url = $"api/products" +
+                  $"?searchTerm={SearchTerm}" +
+                  $"&pageNumber={CurrentPage}" +
+                  $"&pageSize={PageSize}" +
+                  $"&merchantId={_selectedMerchantId}";
+
+        if (_selectedCategoryId.HasValue)
+            url += $"&categoryId={_selectedCategoryId.Value}";
+
+        var response = await Http.GetAsync(url);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _pagedProducts = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
+        }
+        else
+        {
+            Notification.ShowError("Failed to load products.");
+            _pagedProducts = null;
+        }
+    }
+
+    private async Task LoadCategories()
+    {
+        var url = $"api/categories?merchantId={_selectedMerchantId}";
+        var response = await Http.GetAsync(url);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Category>>();
+            if (result != null)
+            {
+                _categories = result.Data;
+            }
+        }
+        else
+        {
+            Notification.ShowError("Failed to load categories.");
+        }
+    }
+
+    private async Task LoadMerchants()
+    {
+        var response = await Http.GetAsync($"api/merchants");
+        if (!response.IsSuccessStatusCode)
+        {
+            await Notification.ShowError("Failed to load merchants.");
+            return;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+        if (result is { Data: not null })
+        {
+            _merchants = result.Data;
+            _selectedMerchantId = _merchants[0].Id;
+            await LoadCategories();
+        }
+    }
+
+    private void GoToProductDetail(Guid id)
+    {
+        Navigation.NavigateTo($"/products/{id}");
+    }
+
+    private void GoToAddProduct()
+    {
+        Navigation.NavigateTo("/products/add");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

@@ -1,0 +1,304 @@
+@page "/users"
+@inject NotificationService Notification
+@using MiniPos.Frontend.Shared.Types
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
+
+<PageTitle>Staff Members - MiniPOS</PageTitle>
+
+<PageHeader
+    Title="Staff Members"
+    Subtitle="Manage your team and their permissions"
+    SearchPlaceholder="Search staff..."
+    @bind-SearchTerm="SearchTerm"
+    ShowViewToggle="false"
+    OnSearch="@HandleSearchTermChanged"
+>
+
+    <Filters>
+        <div class="relative group">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="@AddMerchantQuery"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:bg-white transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Merchants</option>
+                @foreach (var mer in _merchants)
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+    </Filters>
+
+    <Actions>
+        <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+                @onclick="GoToAddStaff">
+            <i data-lucide="plus" class="w-5 h-5 font-black"></i>
+            <span class="font-black uppercase tracking-tight text-sm">Add Staff</span>
+        </button>
+    </Actions>
+
+</PageHeader>
+
+<div
+    class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden flex flex-col min-h-0">
+    @if (_isLoading)
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Loading...</p>
+        </div>
+    }
+    else if (_pagedUsers == null || !_pagedUsers.Data.Any())
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 text-center">
+            <div class="w-20 h-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+                <i data-lucide="users" class="w-10 h-10 text-muted-foreground/30"></i>
+            </div>
+            <h3 class="text-xl font-black text-foreground">No staff members found</h3>
+            <p class="text-muted-foreground max-w-xs mx-auto mt-2">Adjust your search or filter by merchant.</p>
+        </div>
+    }
+    else
+    {
+        <div class="flex-1 overflow-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse table-fixed lg:table-auto">
+                <thead class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-border/10">
+                <tr>
+                    <th class="pl-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-[40%]">
+                        Member
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Role
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hidden md:table-cell">
+                        Assignment
+                    </th>
+                    <th class="pr-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right w-32">
+                        Actions
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-border/5">
+                @foreach (var user in _pagedUsers.Data)
+                {
+                    var ui = GetUserUI(user);
+                    var initials = GetInitials(user.UserName);
+
+                    <tr class="group hover:bg-white/40 transition-all cursor-pointer"
+                        @onclick="() => GoToUserDetail(user.Id)">
+                        <td class="pl-8 py-4">
+                            <div class="flex items-center gap-4">
+                                <div class="relative shrink-0">
+                                    <div
+                                        class="w-10 h-10 rounded-xl bg-gradient-to-tr @ui.AvatarGradient shadow-sm flex items-center justify-center text-white text-xs font-black border border-white">
+                                        @initials
+                                    </div>
+                                    <div
+                                        class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm"></div>
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="font-black text-sm text-foreground group-hover:text-primary transition-colors truncate font-outfit">@user.UserName</h4>
+                                    <p class="text-[11px] text-muted-foreground font-medium truncate">@user.Email</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span
+                                class="text-[9px] uppercase font-black tracking-widest px-2.5 py-1 rounded-lg border @ui.BadgeClass shadow-sm inline-block">
+                                @user.Role
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 hidden md:table-cell">
+                            <div class="flex items-center gap-2 text-xs font-bold text-foreground/70">
+                                <i data-lucide="store" class="w-3.5 h-3.5 text-primary/60"></i>
+                                <span
+                                    class="truncate">@(user.Role == "Admin" ? "Global Access" : "Terminal Alpha")</span>
+                            </div>
+                        </td>
+                        <td class="pr-8 py-4 text-right">
+                            <button
+                                class="w-9 h-9 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90 ml-auto">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <Pagination
+            CurrentPage="@CurrentPage"
+            TotalPages="@(_totalPage)"
+            TotalCount="@(_pagedUsers?.TotalCount ?? 0)"
+            PageSize="@PageSize"
+            OnPageChanged="@HandlePageChanged"
+            OnFirst="@HandleFirstPage"
+            OnPrevious="@HandlePreviousPage"
+            OnNext="@HandleNextPage"
+            OnLast="() => HandlePageChanged(_totalPage)"
+        />
+    }
+</div>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "merchantId")]
+    public Guid MerchantId { get; set; }
+
+    public class UserUI
+    {
+        public string BadgeClass { get; set; } = "";
+        public string AvatarGradient { get; set; } = "";
+    }
+
+    private PagedResult<User>? _pagedUsers;
+    private List<Merchant> _merchants = new();
+    private Guid? _selectedMerchantId;
+    private bool _isLoading;
+    private int _totalPage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadUsers();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMerchants();
+        if (MerchantId != Guid.Empty)
+        {
+            _selectedMerchantId = MerchantId;
+        }
+        else
+        {
+            _selectedMerchantId = _merchants[0].Id;
+        }
+
+        await LoadUsers();
+    }
+
+    private async Task LoadMerchants()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/merchants");
+            if (!response.IsSuccessStatusCode)
+            {
+                Notification.ShowError("Failed to load merchants.");
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+            _merchants = result.Data;
+        }
+        catch (Exception ex)
+        {
+            Notification.ShowError("Error loading merchants.");
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        if (_selectedMerchantId == null)
+        {
+            _pagedUsers = null;
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var url = $"api/users" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
+                      $"&merchantId={_selectedMerchantId}" +
+                      $"&includeCashiers=true";
+
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Notification.ShowError("Failed to load users.");
+                _pagedUsers = null;
+                return;
+            }
+
+            _pagedUsers = await response.Content.ReadFromJsonAsync<PagedResult<User>>();
+            if (_pagedUsers != null)
+                _totalPage = _pagedUsers.TotalPages;
+        }
+        catch (Exception ex)
+        {
+            Notification.ShowError(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private UserUI GetUserUI(User user)
+    {
+        return new UserUI
+        {
+            BadgeClass = user.Role switch
+            {
+                "Admin" => "bg-indigo-50 text-indigo-600 border-indigo-100",
+                "Manager" => "bg-rose-50 text-rose-600 border-rose-100",
+                "Cashier" => "bg-blue-50 text-blue-600 border-blue-100",
+                _ => "bg-slate-50 text-slate-600 border-slate-100"
+            },
+            AvatarGradient = user.Role switch
+            {
+                "Admin" => "from-indigo-400 to-indigo-600",
+                "Manager" => "from-rose-400 to-rose-600",
+                "Cashier" => "from-blue-400 to-blue-600",
+                _ => "from-slate-400 to-slate-600"
+            }
+        };
+    }
+
+    private string GetInitials(string? userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName)) return "??";
+        var parts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length > 1) return $"{parts[0][0]}{parts[parts.Length - 1][0]}".ToUpper();
+        return userName.Substring(0, Math.Min(2, userName.Length)).ToUpper();
+    }
+
+    private void GoToUserDetail(Guid userId)
+    {
+        Navigation.NavigateTo($"/{_selectedMerchantId}/users/{userId}");
+    }
+
+    private void GoToAddStaff()
+    {
+        Navigation.NavigateTo($"/users/add");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private void AddMerchantQuery()
+    {
+        if (_selectedMerchantId.HasValue)
+        {
+            AppendQuery("merchantId", _selectedMerchantId.Value);
+        }
+    }
+
+}

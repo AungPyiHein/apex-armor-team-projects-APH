@@ -1,0 +1,415 @@
+@page "/"
+@inject NotificationService Notification
+@using MiniPos.Frontend.Shared.Types
+
+<PageTitle>Dashboard - MiniPOS</PageTitle>
+
+<PageHeader Title="Dashboard" 
+            Subtitle="Real-time performance overview for your business"
+            ShowSearch="false"
+            ShowViewToggle="false">
+    <Filters>
+        <div class="relative group">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="LoadDashboardData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">Select Merchant</option>
+                @foreach (var mer in _merchants)
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+
+        <div class="bg-white/60 backdrop-blur-md border border-border/60 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-sm group cursor-pointer hover:bg-white transition-all">
+            <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+            <span class="text-xs font-bold text-foreground">Last 7 Days</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-muted-foreground group-hover:translate-y-0.5 transition-transform"></i>
+        </div>
+    </Filters>
+    @* <Actions> *@
+    @*     <button class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"> *@
+    @*         <i data-lucide="plus-circle" class="w-5 h-5 font-black"></i> *@
+    @*         <span class="font-black uppercase tracking-tight text-sm">Add Record</span> *@
+    @*     </button> *@
+    @* </Actions> *@
+</PageHeader>
+
+<div class="animate-slide-down">
+    @if (_selectedMerchantId == null)
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 text-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 min-h-[500px]">
+            <div class="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center mb-8 border border-primary/20 shadow-[inset_0_0_20px_rgba(var(--primary),0.1)]">
+                <i data-lucide="layout-dashboard" class="w-12 h-12 text-primary opacity-60"></i>
+            </div>
+            <h3 class="text-3xl font-black text-foreground font-outfit mb-3">Merchant Analytics Locked</h3>
+            <p class="text-muted-foreground max-w-sm mx-auto text-sm font-medium leading-relaxed">Please select a merchant from the directory above to view their real-time performance metrics and order history.</p>
+            <div class="mt-8 flex items-center gap-4">
+                <div class="flex -space-x-3">
+                    @foreach (var _ in Enumerable.Range(0, 3))
+                    {
+                        <div class="w-10 h-10 rounded-full border-4 border-white bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">?</div>
+                    }
+                </div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Waiting for context</span>
+            </div>
+        </div>
+    }
+    else if (_isLoading)
+    {
+        <div class="flex-1 flex flex-col items-center justify-center p-24 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-2xl shadow-primary/5 min-h-[500px]">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-primary border-primary/20"></div>
+            <p class="mt-6 text-sm font-bold text-muted-foreground tracking-widest uppercase">Analyzing real-time data...</p>
+        </div>
+    }
+    else if (_stats != null)
+    {
+        <!-- Stats Grid (Mesh & Glass) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- Stat Card: Revenue -->
+            <div class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer relative rounded-2xl">
+                <div class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none text-primary" style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+                <div class="relative z-10 p-5">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-primary/20">
+                            <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-[8px] uppercase font-black text-muted-foreground tracking-[0.2em] opacity-60">Revenue</div>
+                    </div>
+                    <div class="text-3xl font-black font-outfit text-foreground leading-tight">
+                        @_stats.TotalRevenue<span class="text-lg ml-1 opacity-50 font-outfit">MMK</span>
+                    </div>
+                    <div class="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-success opacity-80">
+                        <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                        <span>All-time earnings</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Card: Transactions -->
+            <div class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-success/50 hover:shadow-2xl hover:shadow-success/10 cursor-pointer relative rounded-2xl">
+                <div class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none text-success" style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+                <div class="relative z-10 p-5">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-success/20">
+                            <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-[8px] uppercase font-black text-muted-foreground tracking-[0.2em] opacity-60">Orders</div>
+                    </div>
+                    <div class="text-3xl font-black font-outfit text-foreground leading-tight">
+                        @_stats.TotalTransactions
+                    </div>
+                    <div class="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-success opacity-80">
+                        <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                        <span>Completed checkouts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Card: Merchants -->
+            <div class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-warning/50 hover:shadow-2xl hover:shadow-warning/10 cursor-pointer relative rounded-2xl">
+                <div class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none text-warning" style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+                <div class="relative z-10 p-5">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-warning/20">
+                            <i data-lucide="users" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-[8px] uppercase font-black text-muted-foreground tracking-[0.2em] opacity-60">Merchants</div>
+                    </div>
+                    <div class="text-3xl font-black font-outfit text-foreground leading-tight">
+                        @_stats.TotalMerchants
+                    </div>
+                    <div class="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/60">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                        <span>Registered businesses</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Card: Branches -->
+            <div class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-destructive/50 hover:shadow-2xl hover:shadow-destructive/10 cursor-pointer relative rounded-2xl">
+                <div class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none text-destructive" style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+                <div class="relative z-10 p-5">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-destructive/20">
+                            <i data-lucide="store" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-[8px] uppercase font-black text-muted-foreground tracking-[0.2em] opacity-60">Branches</div>
+                    </div>
+                    <div class="text-3xl font-black font-outfit text-foreground leading-tight">
+                        @_stats.TotalBranches
+                    </div>
+                    <div class="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/60">
+                        <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                        <span>Active locations</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Revenue Analytics (Chart) -->
+            <div class="pos-card lg:col-span-2 overflow-hidden flex flex-col p-6 rounded-2xl relative min-h-[450px] bg-white/40 backdrop-blur-md border border-white/60">
+                 <!-- Abstract Mesh Glow Background -->
+                <div class="absolute -top-20 -right-20 w-80 h-80 bg-primary/10 rounded-full blur-3xl opacity-40"></div>
+                <div class="absolute -bottom-20 -left-20 bg-success/10 rounded-full blur-3xl w-72 h-72 opacity-30"></div>
+
+                <div class="flex justify-between items-center mb-8 relative z-10">
+                    <div>
+                        <h3 class="text-xl font-black font-outfit">Revenue Analytics</h3>
+                        <p class="text-xs text-muted-foreground font-medium">Daily performance tracking over the last 7 days</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="flex items-center gap-1.5 px-3 py-1 bg-primary/10 rounded-full text-[10px] font-black uppercase tracking-widest text-primary border border-primary/20">
+                            <i data-lucide="calendar" class="w-3 h-3"></i> Real-time
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative mt-4 bg-muted/10 rounded-2xl border border-border/20 overflow-hidden flex items-end pt-12">
+                    @if (_stats.DailySales.Any())
+                    {
+                        <svg viewBox="0 0 800 300" class="w-full h-full absolute inset-0 drop-shadow-[0_8px_24px_rgba(var(--primary),0.15)]" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="revenueGlow" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="hsl(var(--primary))" stop-opacity="0.3" />
+                                    <stop offset="100%" stop-color="hsl(var(--primary))" stop-opacity="0.0" />
+                                </linearGradient>
+                                <filter id="glow">
+                                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+                            
+                            @{
+                                var maxSales = _stats.DailySales.Max(s => s.TotalAmount);
+                                if (maxSales == 0) maxSales = 100;
+                                var count = _stats.DailySales.Count;
+                                var width = 800;
+                                var height = 300;
+                                var points = "";
+                                var fillPath = $"M0,{height} ";
+                                
+                                for (int i = 0; i < count; i++)
+                                {
+                                    var x = count > 1 ? (width / (double)(count - 1)) * i : 0;
+                                    var y = height - (_stats.DailySales[i].TotalAmount / maxSales * (height - 100)) - 50;
+                                    
+                                    if (i == 0) {
+                                        points += $"M{x},{y} ";
+                                    } else {
+                                        var prevX = (width / (double)(count - 1)) * (i-1);
+                                        var midX = (prevX + x) / 2;
+                                        points += $"S{midX},{y} {x},{y} ";
+                                    }
+                                    fillPath += $"L{x},{y} ";
+                                }
+                                if (count > 0)
+                                {
+                                    fillPath += $"L{(count > 1 ? width : 0)},{height} Z";
+                                }
+                            }
+
+                            <path d="@fillPath" fill="url(#revenueGlow)" />
+                            <path d="@points" fill="none" stroke="hsl(var(--primary))" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+                            
+                            @for (int i = 0; i < _stats.DailySales.Count; i++)
+                            {
+                                var x = _stats.DailySales.Count > 1 ? (800 / (double)(_stats.DailySales.Count - 1)) * i : 0;
+                                var y = height - (_stats.DailySales[i].TotalAmount / maxSales * (height - 100)) - 50;
+                                <circle cx="@x" cy="@y" r="6" fill="white" stroke="hsl(var(--primary))" stroke-width="3" class="hover:scale-150 transition-transform cursor-pointer" />
+                                @((MarkupString)$"<text x='{x}' y='{height - 10}' font-size='10' fill='hsl(var(--muted-foreground))' text-anchor='middle' font-weight='bold'>{_stats.DailySales[i].Date.ToString("ddd")}</text>")
+                            }
+                        </svg>
+                    }
+                    else
+                    {
+                        <div class="w-full h-full flex items-center justify-center text-muted-foreground/40 text-xs font-black uppercase tracking-widest">
+                            No analytic data available for this merchant...
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Recent Activity (High Density Rows) -->
+            <div class="pos-card flex flex-col overflow-hidden rounded-2xl border-white/60 bg-white/40 backdrop-blur-md p-0 shadow-xl shadow-black/[0.02]">
+                <div class="p-5 pb-4 border-b border-border/20 bg-muted/5">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-black text-lg text-foreground flex items-center gap-2 font-outfit">
+                            <i data-lucide="clock" class="w-5 h-5 text-primary animate-spin-slow"></i> Recent Orders
+                        </h2>
+                        <span class="text-[10px] font-black uppercase tracking-tighter text-muted-foreground/60">Live Feed</span>
+                    </div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto max-h-[365px] scrollbar-hide">
+                    @if (!_stats.RecentOrders.Any())
+                    {
+                        <div class="flex flex-col items-center justify-center p-12 text-center opacity-40">
+                            <i data-lucide="inbox" class="w-12 h-12 mb-3"></i>
+                            <p class="text-xs font-black uppercase tracking-widest">No activity reported</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var order in _stats.RecentOrders)
+                        {
+                            var orderNumber = GetFormattedOrderNumber(order.Id);
+                            var timeAgo = GetTimeAgo(order.OrderDate);
+
+                            <div class="group flex items-center justify-between p-4 hover:bg-primary/[0.03] transition-all duration-300 border-b border-border/10 cursor-pointer border-l-2 border-transparent hover:border-primary">
+                                <div class="flex items-center gap-3.5">
+                                    <div class="w-10 h-10 rounded-xl bg-white/60 backdrop-blur-md flex items-center justify-center border border-white group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-sm">
+                                        <i data-lucide="shopping-bag" class="w-5 h-5 text-primary"></i>
+                                    </div>
+                                    <div class="space-y-0.5">
+                                        <p class="text-[14px] font-bold text-foreground font-outfit group-hover:text-primary transition-colors">@orderNumber</p>
+                                        <p class="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest leading-none">@timeAgo</p>
+                                    </div>
+                                </div>
+                                <div class="text-right space-y-1">
+                                    <p class="text-[15px] font-black font-outfit text-foreground leading-none">$@order.TotalAmount.ToString("N2")</p>
+                                    <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-lg border border-emerald-100 shadow-sm">Paid</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                @* <div class="p-4 bg-muted/5 mt-auto border-t border-border/20"> *@
+                @*     <button class="w-full btn btn-ghost text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-all"> *@
+                @*         View Comprehensive Logs <i data-lucide="arrow-right" class="w-3 h-3 ml-2"></i> *@
+                @*     </button> *@
+                @* </div> *@
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .animate-spin-slow { animation: spin 8s linear infinite; }
+    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private DashboardResponse? _stats;
+    private List<Merchant> _merchants = new();
+    private Guid? _selectedMerchantId;
+    private bool _isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMerchants();
+    }
+
+    private async Task LoadMerchants()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/merchants");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+                if (result != null)
+                {
+                    _merchants = result.Data;
+                    _selectedMerchantId = _merchants[0].Id;
+                    await LoadDashboardData();
+                }
+            }
+            else
+            {
+                await Notification.ShowError("Failed to load merchants.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading merchants: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        if (_selectedMerchantId == null)
+        {
+            Clear();
+            return;
+        }
+      
+        try 
+        {
+            _isLoading = true;
+            _stats = null;
+            StateHasChanged();
+
+            var param = new DashboardRequest
+            {
+                MerchantId = _selectedMerchantId.Value,
+                StatsDurationInDay = 7,
+            };
+            
+            var url = $"api/dashboard?{param.ToQuery()}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _stats = await response.Content.ReadFromJsonAsync<DashboardResponse>();
+            }
+            else
+            {
+                await Notification.ShowError("Failed to load dashboard data.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching dashboard stats: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private string GetTimeAgo(DateTime date)
+    {
+        // Ensure we are comparing UTC to UTC
+        var utcDate = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();
+        var ts = DateTime.UtcNow - utcDate;
+        
+        if (ts.TotalSeconds < 60) return "Just now";
+        if (ts.TotalMinutes < 60) return $"{(int)ts.TotalMinutes} mins ago";
+        if (ts.TotalHours < 24) return $"{(int)ts.TotalHours} hour{(ts.TotalHours >= 2 ? "s" : "")} ago";
+        return utcDate.ToString("MMM dd HH:mm");
+    }
+
+    private string GetFormattedOrderNumber(Guid id)
+    {
+        var idStr = id.ToString().Split('-').Last().ToUpper();
+        if (idStr.Length > 4) idStr = idStr.Substring(idStr.Length - 4);
+        return $"ORD-{idStr}";
+    }
+
+    private void Clear()
+    {
+        _stats = null;
+        _isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}

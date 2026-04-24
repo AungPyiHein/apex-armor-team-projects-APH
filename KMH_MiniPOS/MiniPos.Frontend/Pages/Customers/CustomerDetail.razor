@@ -1,0 +1,410 @@
+@page "/customers/{CustomerId}"
+@inject NotificationService Notification
+
+<PageTitle>Customer Details - MiniPOS</PageTitle>
+
+<div class="animate-slide-down max-w-5xl mx-auto pb-12">
+    <!-- Header with Back Navigation -->
+    <div class="mb-8 flex justify-between items-center">
+        <button
+            class="btn btn-outline border-border/50 bg-white hover:bg-slate-50 px-5 flex items-center gap-2 group transition-all"
+            @onclick="GoBack">
+            <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+            <span class="font-bold text-xs uppercase tracking-tight">Back to Directory</span>
+        </button>
+        <div class="flex items-center gap-2">
+            <button class="btn btn-primary btn-sm rounded-lg flex items-center gap-1.5 active:scale-95 shadow-lg shadow-primary/20" @onclick="() => _showEditModal = true">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profile
+            </button>
+            <button class="btn btn-outline border-destructive/30 text-destructive btn-sm rounded-lg flex items-center gap-1.5 hover:bg-destructive/5 active:scale-95" @onclick="() => _showDeleteModal = true">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+            </button>
+        </div>
+    </div>
+
+    @if (_customer == null)
+    {
+        <div class="flex flex-col items-center justify-center p-24 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2rem] shadow-xl">
+            <div class="animate-spin rounded-full h-10 w-10 border-4 border-t-primary border-primary/20"></div>
+            <span class="mt-4 text-sm font-bold text-muted-foreground uppercase tracking-widest">Loading profile...</span>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Profile Card & Orders -->
+            <div class="lg:col-span-2 flex flex-col gap-8">
+                <!-- Customer Profile Card -->
+                <div class="pos-card overflow-hidden bg-white/60 backdrop-blur-xl shadow-2xl border-white/60 p-8 flex flex-col relative group">
+                    <div class="absolute -right-10 -top-10 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+                    
+                    <div class="relative z-10 flex flex-col md:flex-row gap-8 items-start">
+                        <div class="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                            <i data-lucide="user" class="w-12 h-12"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-1">
+                                <h1 class="text-3xl font-black text-foreground tracking-tight">@_customer.Name</h1>
+                                <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">Active Member</span>
+                            </div>
+                            <p class="text-primary text-xs font-black uppercase tracking-widest mb-4">Merchant: @_customer.MerchantName</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                                <div class="flex items-center gap-3 group/item">
+                                    <div class="w-8 h-8 rounded-lg bg-white/80 border border-border/40 flex items-center justify-center text-muted-foreground group-hover/item:text-primary transition-colors shadow-sm">
+                                        <i data-lucide="phone" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Phone Number</p>
+                                        <p class="text-sm font-bold text-foreground">@(string.IsNullOrEmpty(_customer.PhoneNumber) ? "Not provided" : _customer.PhoneNumber)</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 group/item">
+                                    <div class="w-8 h-8 rounded-lg bg-white/80 border border-border/40 flex items-center justify-center text-muted-foreground group-hover/item:text-primary transition-colors shadow-sm">
+                                        <i data-lucide="mail" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Email Address</p>
+                                        <p class="text-sm font-bold text-foreground">@(string.IsNullOrEmpty(_customer.Email) ? "Not provided" : _customer.Email)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* <!-- Recent Orders Table --> *@
+                @* <div class="pos-card bg-white/60 backdrop-blur-xl shadow-xl border-white/60 flex flex-col min-h-0"> *@
+                @*     <div class="p-6 border-b border-border/5 flex items-center justify-between"> *@
+                @*         <div class="flex items-center gap-3"> *@
+                @*             <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200"> *@
+                @*                 <i data-lucide="shopping-bag" class="w-4 h-4"></i> *@
+                @*             </div> *@
+                @*             <h2 class="text-lg font-black text-foreground">Transaction History</h2> *@
+                @*         </div> *@
+                @*         <span class="text-xs font-bold text-muted-foreground bg-slate-50 px-2 py-1 rounded-md border">@(_customer.Orders?.Count ?? 0) Total Orders</span> *@
+                @*     </div> *@
+                @* *@
+                @*     <div class="overflow-x-auto"> *@
+                @*         <table class="w-full text-left border-collapse"> *@
+                @*             <thead> *@
+                @*                 <tr class="bg-slate-50/50"> *@
+                @*                     <th class="pl-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Order Date</th> *@
+                @*                     <th class="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Order ID</th> *@
+                @*                     <th class="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Amount</th> *@
+                @*                     <th class="pr-6 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Actions</th> *@
+                @*                 </tr> *@
+                @*             </thead> *@
+                @*             <tbody class="divide-y divide-border/5"> *@
+                @*                 @if (_customer.Orders == null || !_customer.Orders.Any()) *@
+                @*                 { *@
+                @*                     <tr> *@
+                @*                         <td colspan="4" class="py-12 text-center text-sm text-muted-foreground font-medium italic bg-white/20">No orders found for this customer.</td> *@
+                @*                     </tr> *@
+                @*                 } *@
+                @*                 else *@
+                @*                 { *@
+                @*                     @foreach (var order in _customer.Orders.OrderByDescending(o => o.CreatedAt)) *@
+                @*                     { *@
+                @*                         <tr class="group hover:bg-white/40 transition-colors"> *@
+                @*                             <td class="pl-6 py-4"> *@
+                @*                                 <div class="flex flex-col"> *@
+                @*                                     <span class="text-sm font-bold text-foreground">@order.CreatedAt.ToString("MMM dd, yyyy")</span> *@
+                @*                                     <span class="text-[10px] text-muted-foreground font-medium">@order.CreatedAt.ToString("hh:mm tt")</span> *@
+                @*                                 </div> *@
+                @*                             </td> *@
+                @*                             <td class="px-6 py-4"> *@
+                @*                                 <span class="text-xs font-mono font-bold text-muted-foreground bg-slate-100/50 px-2 py-1 rounded">@order.Id.ToString().Substring(0, 8).ToUpper()</span> *@
+                @*                             </td> *@
+                @*                             <td class="px-6 py-4 text-right"> *@
+                @*                                 <span class="text-sm font-black text-foreground">@order.TotalAmount.ToString("N0") <small class="text-[10px] opacity-50">MMK</small></span> *@
+                @*                             </td> *@
+                @*                             <td class="pr-6 py-4 text-right"> *@
+                @*                                 <button class="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-border/40 flex items-center justify-center transition-all text-muted-foreground hover:text-primary active:scale-90 ml-auto" *@
+                @*                                         @onclick='() => NavToOrder(order.Id)'> *@
+                @*                                     <i data-lucide="eye" class="w-3.5 h-3.5"></i> *@
+                @*                                 </button> *@
+                @*                             </td> *@
+                @*                         </tr> *@
+                @*                     } *@
+                @*                 } *@
+                @*             </tbody> *@
+                @*         </table> *@
+                @*     </div> *@
+                @* </div> *@
+            </div>
+
+            <!-- Right Column: Stats & Meta -->
+            <div class="flex flex-col gap-8">
+                <!-- Customer Stats -->
+                <div class="pos-card bg-white/60 backdrop-blur-xl shadow-xl border-white/60 p-6 flex flex-col gap-6 relative overflow-hidden">
+                    <div class="absolute -bottom-4 -left-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl"></div>
+                    
+                    <h3 class="text-sm font-black uppercase tracking-wider text-muted-foreground relative z-10">Engagement Metrics</h3>
+                    
+                    <div class="grid grid-cols-1 gap-4 relative z-10">
+                        <div class="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-primary/60 mb-1">Lifetime Value</p>
+                            <p class="text-2xl font-black text-primary font-outfit">@(_customer.Orders?.Sum(o => o.TotalAmount).ToString("N0") ?? "0") <span class="text-xs opacity-60">MMK</span></p>
+                        </div>
+                        
+                        <div class="bg-slate-50/80 rounded-2xl p-4 border border-border/40">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Average Order</p>
+                            <p class="text-xl font-black text-foreground font-outfit">@((_customer.Orders?.Any() == true ? _customer.Orders.Average(o => o.TotalAmount) : 0).ToString("N0")) <span class="text-xs opacity-60 text-muted-foreground">MMK</span></p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 pt-2 relative z-10">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-muted-foreground font-bold italic">Member Since</span>
+                            <span class="font-black text-foreground">@_customer.CreatedAt.ToString("MMM yyyy")</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-muted-foreground font-bold italic">Last Purchase</span>
+                            <span class="font-black text-foreground">@(_customer.Orders?.OrderByDescending(o => o.CreatedAt).FirstOrDefault()?.CreatedAt.ToString("MMM dd, yyyy") ?? "Never")</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loyalty Status -->
+                <div class="pos-card bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-xl shadow-xl border-white/40 p-6 flex flex-col items-center text-center relative group">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center text-primary shadow-lg mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="award" class="w-8 h-8"></i>
+                    </div>
+                    @if (_customer.Royalty == null)
+                    {
+                        <h4 class="text-lg font-black text-foreground">No Loyalty Data</h4>
+                        <p class="text-xs text-muted-foreground mt-1 font-medium">Loyalty / royalty information isn’t available for this customer yet.</p>
+                        <div class="w-full mt-6 rounded-xl border border-white/50 bg-white/50 px-4 py-3 text-left">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-muted-foreground font-bold italic">Current Points</span>
+                                <span class="font-black text-foreground">0</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs mt-2">
+                                <span class="text-muted-foreground font-bold italic">Lifetime Points</span>
+                                <span class="font-black text-foreground">0</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <h4 class="text-lg font-black text-foreground">@(_customer.Royalty.Tier)</h4>
+                        <p class="text-xs text-muted-foreground mt-1 font-medium">Loyalty status based on points activity.</p>
+
+                        <div class="w-full mt-6 rounded-xl border border-white/50 bg-white/50 px-4 py-3 text-left">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-muted-foreground font-bold italic">Current Points</span>
+                                <span class="font-black text-foreground">@_customer.Royalty.CurrentPoint.ToString("N0")</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs mt-2">
+                                <span class="text-muted-foreground font-bold italic">Lifetime Points</span>
+                                <span class="font-black text-foreground">@_customer.Royalty.LifetimePoints.ToString("N0")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Modal -->
+        @if (_showEditModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-white/60 w-full max-w-md p-8 animate-scale-up space-y-6">
+                    <div class="flex items-center gap-3 text-primary">
+                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                            <i data-lucide="pencil" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-xl font-black tracking-tight">Edit Profile</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Full Name</label>
+                            <input type="text" @bind="_editName" class="w-full px-5 py-3 bg-white border border-border/60 rounded-2xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:outline-none font-bold shadow-sm" />
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Phone Number</label>
+                                <input type="text" @bind="_editPhone" class="w-full px-5 py-3 bg-white border border-border/60 rounded-2xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:outline-none font-bold shadow-sm" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email Address</label>
+                                <input type="email" @bind="_editEmail" class="w-full px-5 py-3 bg-white border border-border/60 rounded-2xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:outline-none font-bold shadow-sm" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col gap-3 pt-4">
+                        <button class="btn btn-primary rounded-2xl h-12 text-sm shadow-xl shadow-primary/30 flex items-center justify-center gap-2" @onclick="HandleEdit" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div> }
+                            <span class="font-black uppercase tracking-tight">Save Changes</span>
+                        </button>
+                        <button class="btn btn-ghost rounded-2xl h-12 text-sm font-bold text-muted-foreground" @onclick='() => _showEditModal = false' disabled="@_isSubmitting">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Delete Modal -->
+        @if (_showDeleteModal)
+        {
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
+                <div class="bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-white/60 w-full max-w-md p-8 animate-scale-up space-y-6">
+                    <div class="flex items-center gap-3 text-destructive">
+                        <div class="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center border border-destructive/20">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-xl font-black tracking-tight text-foreground">Remove Customer?</h3>
+                    </div>
+                    
+                    <div class="p-4 bg-destructive/5 rounded-2xl border border-destructive/10">
+                        <p class="text-sm text-destructive font-medium leading-relaxed">
+                            Are you sure you want to remove <b>@_customer.Name</b> from your directory? 
+                            This action will soft-delete the record and they will no longer appear in active lists.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col gap-3 pt-2">
+                        <button class="btn btn-destructive rounded-2xl h-12 text-sm shadow-xl shadow-destructive/20 flex items-center justify-center gap-2" @onclick="HandleDelete" disabled="@_isSubmitting">
+                            @if (_isSubmitting) { <div class="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div> }
+                            <span class="font-black uppercase tracking-tight">Yes, Delete Record</span>
+                        </button>
+                        <button class="btn btn-ghost rounded-2xl h-12 text-sm font-bold text-muted-foreground" @onclick='() => _showDeleteModal = false' disabled="@_isSubmitting">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string CustomerId { get; set; } = "";
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private CustomerDetails? _customer;
+
+    // Modals controls
+    private bool _showEditModal = false;
+    private bool _showDeleteModal = false;
+
+    private string _editName = "";
+    private string _editPhone = "";
+    private string _editEmail = "";
+
+    private bool _isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomer();
+    }
+
+    private async Task LoadCustomer()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/customers/{CustomerId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load customer profile.");
+                return;
+            }
+
+            _customer = await response.Content.ReadFromJsonAsync<CustomerDetails>();
+            if (_customer != null)
+            {
+                _editName = _customer.Name;
+                _editPhone = _customer.PhoneNumber ?? "";
+                _editEmail = _customer.Email ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Error loading customer: {ex.Message}");
+        }
+    }
+
+    private void GoBack() { Navigation.NavigateTo("/customers"); }
+    private void NavToOrder(Guid id) { Navigation.NavigateTo($"/sales/{id}"); }
+
+    private async Task HandleEdit()
+    {
+        if (string.IsNullOrWhiteSpace(_editName))
+        {
+            await Notification.ShowError("Name is required.");
+            return;
+        }
+        
+        _isSubmitting = true;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/customers/{CustomerId}", new CustomerUpdateRequest
+            {
+                Name = _editName,
+                PhoneNumber = _editPhone,
+                Email = _editEmail
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Profile updated successfully!");
+                _showEditModal = false;
+                await LoadCustomer();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Update failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/customers/{CustomerId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await Notification.ShowSuccess("Customer record removed.");
+                Navigation.NavigateTo("/customers");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await Notification.ShowError($"Delete failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError($"Network error: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            _showDeleteModal = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender || _customer != null) 
+        { 
+            await JSRuntime.InvokeVoidAsync("initIcons"); 
+        }
+    }
+}

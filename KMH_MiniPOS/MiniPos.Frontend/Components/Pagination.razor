@@ -1,0 +1,127 @@
+@using System.ComponentModel.DataAnnotations
+
+<div
+    class="px-6 py-4 border-t border-border/10 bg-white/20 backdrop-blur-md flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 mt-4 rounded-[1.25rem] shadow-sm">
+    <div class="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
+        @if (TotalCount > 0)
+        {
+            <span>Showing @((CurrentPage - 1) * PageSize + 1) - @(Math.Min(CurrentPage * PageSize, TotalCount)) of @TotalCount Items</span>
+        }
+        else
+        {
+            <span>No Items to Show</span>
+        }
+    </div>
+
+    @if (TotalPages > 1)
+    {
+        <div class="flex items-center gap-1.5">
+            <button
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-border/10 text-muted-foreground hover:bg-primary hover:text-white transition-all disabled:opacity-30 shadow-sm active:scale-95"
+                disabled="@(CurrentPage <= 1)"
+                @onclick="OnPrevious">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+
+            @foreach (var p in GetPageNumbers())
+            {
+                if (p == -1)
+                {
+                    <span class="px-2 text-muted-foreground">...</span>
+                }
+                else
+                {
+                    var pageIndex = p;
+                    <button class="w-9 h-9 flex items-center justify-center rounded-xl font-bold text-[11px] transition-all active:scale-95
+                                   @(pageIndex == CurrentPage ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "bg-white border border-border/10 text-muted-foreground hover:border-primary/40 hover:text-primary")"
+                            @onclick="() => ChangePage(pageIndex)">
+                        @pageIndex
+                    </button>
+                }
+            }
+
+            <button
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-border/10 text-muted-foreground hover:bg-primary hover:text-white transition-all disabled:opacity-30 shadow-sm active:scale-95"
+                disabled="@(CurrentPage >= TotalPages)"
+                @onclick="OnNext">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] [Required] public int CurrentPage { get; set; } = 1;
+    [Parameter] [Required] public int PageSize { get; set; } = 10;
+    [Parameter] [Required] public int TotalPages { get; set; } = 1;
+    [Parameter] [Required] public int TotalCount { get; set; } = 0;
+
+    [Parameter] [Required] public EventCallback<int> OnPageChanged { get; set; }
+    [Parameter] [Required] public EventCallback<int> OnPageSizeChanged { get; set; }
+    [Parameter] [Required] public EventCallback OnNext { get; set; }
+    [Parameter] [Required] public EventCallback OnPrevious { get; set; }
+    [Parameter] [Required] public EventCallback OnFirst { get; set; }
+    [Parameter] [Required] public EventCallback OnLast { get; set; }
+
+    private int LocalPageSize;
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        CurrentPage = page;
+        await OnPageChanged.InvokeAsync(page);
+    }
+
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        if (TotalPages <= 7)
+        {
+            for (var i = 1; i <= TotalPages; i++) pages.Add(i);
+        }
+        else
+        {
+            pages.Add(1);
+            if (CurrentPage > 3) pages.Add(-1);
+
+            var start = Math.Max(2, CurrentPage - 1);
+            var end = Math.Min(TotalPages - 1, CurrentPage + 1);
+
+            for (var i = start; i <= end; i++)
+            {
+                if (!pages.Contains(i)) pages.Add(i);
+            }
+
+            if (CurrentPage < TotalPages - 2) pages.Add(-1);
+            if (!pages.Contains(TotalPages)) pages.Add(TotalPages);
+        }
+
+        return pages;
+    }
+
+    private Task ApplyPageSize()
+    {
+        return OnPageSizeChanged.InvokeAsync(LocalPageSize);
+    }
+
+    private Task NextPage()
+    {
+        return OnNext.InvokeAsync();
+    }
+
+    private Task PreviousPage()
+    {
+        return OnPrevious.InvokeAsync();
+    }
+
+    private Task FirstPage()
+    {
+        return OnFirst.InvokeAsync();
+    }
+
+    private Task LastPage()
+    {
+        return OnLast.InvokeAsync();
+    }
+
+}

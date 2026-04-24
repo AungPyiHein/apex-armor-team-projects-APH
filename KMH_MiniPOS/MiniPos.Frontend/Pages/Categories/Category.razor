@@ -1,0 +1,403 @@
+@page "/categories"
+@using MiniPos.Frontend.Shared.Types
+@inject NotificationService Notification
+@inherits MiniPos.Frontend.Shared.Components.FilterablePageBase
+
+<PageTitle>Categories - MiniPOS</PageTitle>
+
+<PageHeader Title="Categories"
+            Subtitle="Organize your menu and product catalog effectively"
+            SearchPlaceholder="Search categories..."
+            @bind-SearchTerm="SearchTerm"
+            @bind-ViewMode="_viewMode"
+            OnSearch="@HandleSearchTermChanged">
+    <Filters>
+        <div class="relative group">
+            <i data-lucide="store"
+               class="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none"></i>
+            <select @bind="_selectedMerchantId" @bind:after="LoadData"
+                    class="bg-white border border-border/60 rounded-2xl text-xs font-bold py-2.5 pl-10 pr-10 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 focus:bg-white transition-all shadow-sm cursor-pointer appearance-none">
+                <option value="">All Merchants</option>
+                @foreach (var mer in _merchants)
+                {
+                    <option value="@mer.Id">@mer.Name</option>
+                }
+            </select>
+            <i data-lucide="chevron-down"
+               class="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-transform group-focus-within:rotate-180 pointer-events-none"></i>
+        </div>
+    </Filters>
+    <Actions>
+        <button
+            class="btn btn-primary px-6 h-12 shadow-xl shadow-primary/20 flex items-center gap-3 transition-all"
+            @onclick="GoToAddCategory">
+            <i data-lucide="folder-plus" class="w-5 h-5"></i>
+            <span class="font-black uppercase tracking-tight text-sm">Add Category</span>
+        </button>
+    </Actions>
+</PageHeader>
+
+<!-- Floating Alert Box -->
+@if (!string.IsNullOrEmpty(_alertMessage))
+{
+    <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-down">
+        <div class="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md
+                @(_alertType == "success" ? "bg-emerald-50/90 border-emerald-200 text-emerald-800" : "bg-rose-50/90 border-rose-200 text-rose-800")">
+            <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center
+                    @(_alertType == "success" ? "bg-emerald-100" : "bg-rose-100")">
+                <i data-lucide="@(_alertType == "success" ? "check-circle" : "alert-circle")" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <p class="text-xs font-black uppercase tracking-widest opacity-60">@(_alertType == "success" ? "Success" : "Error")</p>
+                <p class="text-sm font-bold">@_alertMessage</p>
+            </div>
+            <button @onclick='() => _alertMessage = ""' class="ml-4 hover:opacity-70 transition-opacity">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+}
+
+@if (_pagedCategories == null)
+{
+    <div class="flex items-center justify-center h-48">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+}
+else
+{
+    var filteredCategories = _pagedCategories.Data
+        .Where(c => string.IsNullOrEmpty(SearchTerm) ||
+                    c.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (c.Description != null && c.Description.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+
+    @if (_viewMode == "grid")
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            @foreach (var category in filteredCategories)
+            {
+                var ui = GetCategoryUI(category);
+                <div
+                    class="pos-card p-0.5 overflow-hidden group hover:-translate-y-1.5 transition-all duration-500 border-border/40 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer relative rounded-2xl"
+                    @onclick="() => GoToCategoryDetail(category.Id)">
+
+                    <!-- Premium Mesh Background Pattern -->
+                    <div
+                        class="absolute inset-0 z-0 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-[0.08] transition-all duration-1000 pointer-events-none @ui.BgGlow"
+                        style="background-image: radial-gradient(currentColor 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+
+                    <!-- Visual Header -->
+                    <div
+                        class="h-24 w-full bg-gradient-to-br @ui.Gradient relative overflow-hidden flex items-center justify-center border rounded-lg">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+
+                        <!-- Layered Mesh Orbs -->
+                        <div
+                            class="absolute -top-10 -right-10 w-28 h-28 @ui.BgGlow rounded-full blur-3xl opacity-60 animate-pulse-subtle"></div>
+                        <div
+                            class="absolute -bottom-10 -left-10 bg-white/20 rounded-full blur-3xl w-24 h-24 opacity-40"></div>
+
+                        <!-- Icon Container -->
+                        <div
+                            class="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-foreground/80 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 z-10 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] border border-white/40">
+                            <i data-lucide="@ui.Icon" class="w-5.5 h-5.5 @ui.TextColor drop-shadow-sm"></i>
+                        </div>
+
+                        <!-- Merchant Badge -->
+                        <div class="absolute top-3 left-3">
+                                <span
+                                    class="bg-white/90 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest shadow-sm rounded-full px-2 py-0.5 border border-border/20 @ui.TextColor">
+                                    @category.MerchantName
+                                </span>
+                        </div>
+                    </div>
+
+                    <!-- Content Segment -->
+                    <div class="p-3 relative z-10">
+                        <h3 class="font-bold text-[16px] tracking-tight text-foreground line-clamp-1 leading-snug group-hover:text-primary transition-colors font-outfit">@category.Name</h3>
+                        <p class="text-[11px] text-muted-foreground line-clamp-2 mt-1 min-h-[32px]">@category.Description</p>
+
+                        <!-- Footer -->
+                        <div class="flex justify-between items-center pt-3 mt-3 border-t border-border/40">
+                            <div class="flex items-center gap-1.5">
+                                <div
+                                    class="w-1.5 h-1.5 rounded-full @ui.BgGlow opacity-60 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                                <span
+                                    class="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Catalog Category</span>
+                            </div>
+                            <div class="text-right flex items-center gap-1">
+                                <span
+                                    class="text-[14px] font-black font-outfit @ui.TextColor">@category.ProductCount</span>
+                                <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Items</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hover Indicator -->
+                    <div
+                        class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Concise List View -->
+        <div class="pos-card p-0 bg-white/60 shadow-xl border-border/40 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-muted/30 border-b border-border/30">
+                <tr>
+                    <th class="pl-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-12"></th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Category Detail
+                    </th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Merchant
+                    </th>
+                    <th class="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Items
+                    </th>
+                    <th class="pr-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                        Actions
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-border/20">
+                @foreach (var category in filteredCategories)
+                {
+                    var ui = GetCategoryUI(category);
+                    <tr class="group hover:bg-primary/[0.03] backdrop-blur-sm transition-all duration-300 cursor-pointer border-l-2 border-transparent hover:border-primary hover:translate-x-1"
+                        @onclick="() => GoToCategoryDetail(category.Id)">
+                        <td class="pl-6 py-2.5">
+                            <div
+                                class="w-9 h-9 rounded-xl @ui.BgIcon backdrop-blur-md flex items-center justify-center border border-border/60 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-sm shadow-primary/5">
+                                <i data-lucide="@ui.Icon" class="w-4.5 h-4.5 @ui.TextColor"></i>
+                            </div>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <div
+                                class="font-bold text-[14px] text-foreground font-outfit group-hover:text-primary transition-colors">@category.Name</div>
+                            <div
+                                class="text-[10px] font-medium text-muted-foreground line-clamp-1">@category.Description</div>
+                        </td>
+                        <td class="px-4 py-2.5">
+                                    <span
+                                        class="badge @ui.BgIcon @ui.TextColor text-[9px] font-black uppercase tracking-widest border-transparent py-1 px-2.5 rounded-lg shadow-sm shadow-black/5">
+                                        @category.MerchantName
+                                    </span>
+                        </td>
+                        <td class="px-4 py-2.5 text-right">
+                            <div class="text-base font-black font-outfit @ui.TextColor">@category.ProductCount</div>
+                        </td>
+                        <td class="pr-6 py-2.5 text-right">
+                            <button
+                                class="w-8 h-8 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary flex items-center justify-center transition-all ml-auto hover:rotate-90">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <Pagination CurrentPage="@CurrentPage"
+                    TotalPages="@(_pagedCategories?.TotalPages ?? 1)"
+                    TotalCount="@(_pagedCategories?.TotalCount ?? 0)"
+                    PageSize="@PageSize"
+                    OnPageChanged="@HandlePageChanged"
+                    OnFirst="@HandleFirstPage"
+                    OnPrevious="@HandlePreviousPage"
+                    OnNext="@HandleNextPage"
+                    OnLast="() => HandlePageChanged(_pagedCategories?.TotalPages ?? 1)"/>
+    }
+}
+
+@code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    public class CategoryUI
+    {
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "";
+        public string Gradient { get; set; } = "";
+        public string BgGlow { get; set; } = "";
+        public string BgIcon { get; set; } = "";
+        public string TextColor { get; set; } = "";
+    }
+
+    private PagedResult<CategoryListResponse>? _pagedCategories;
+    private string _viewMode = "grid";
+    private List<Merchant> _merchants = new();
+    private Guid? _selectedMerchantId;
+
+    // Alert state
+    private string _alertMessage = "";
+    private string _alertType = "success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMerchants();
+        await LoadData();
+    }
+
+    private async Task LoadMerchants()
+    {
+        try
+        {
+            var url = $"api/merchants";
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                await Notification.ShowError("Failed to load merchants.");
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Merchant>>();
+            if (result is { Data: not null })
+            {
+                _merchants = result.Data;
+                _selectedMerchantId = _merchants[0].Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            await Notification.ShowError(ex.Message);
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (_selectedMerchantId == null)
+        {
+            Clear();
+            return;
+        }
+
+        try
+        {
+            var url = $"api/categories" +
+                      $"?searchTerm={SearchTerm}" +
+                      $"&pageNumber={CurrentPage}" +
+                      $"&pageSize={PageSize}" +
+                      $"&merchantId={_selectedMerchantId}";
+            
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                Notification.ShowError("Failed to load categories.");
+                _pagedCategories = null;
+                return;
+            }
+
+            _pagedCategories = await response.Content.ReadFromJsonAsync<PagedResult<CategoryListResponse>>();
+        }
+        catch (Exception ex)
+        {
+            Notification.ShowError($"Error loading categories: {ex.Message}", "error");
+            _pagedCategories = null;
+        }
+        finally
+        {
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+    private CategoryUI GetCategoryUI(CategoryListResponse category)
+    {
+        var name = category.Name;
+        var lowerName = name.ToLower();
+
+        // Keyword matching for Icons
+        var icon = lowerName switch
+        {
+            var n when n.Contains("coffee") || n.Contains("espresso") || n.Contains("latte") => "coffee",
+            var n when n.Contains("bakery") || n.Contains("bread") || n.Contains("pastry") || n.Contains("croissant") => "croissant",
+            var n when n.Contains("food") || n.Contains("meal") || n.Contains("dish") || n.Contains("lunch") || n.Contains("dinner") => "utensils",
+            var n when n.Contains("beverage") || n.Contains("drink") || n.Contains("soda") || n.Contains("juice") => "cup-soda",
+            var n when n.Contains("dessert") || n.Contains("sweet") || n.Contains("cake") => "ice-cream",
+            var n when n.Contains("merchandise") || n.Contains("gift") || n.Contains("shop") => "shopping-bag",
+            var n when n.Contains("leaf") || n.Contains("tea") || n.Contains("organic") || n.Contains("vegan") => "leaf",
+            var n when n.Contains("package") || n.Contains("box") || n.Contains("delivery") => "package",
+            var n when n.Contains("tag") || n.Contains("sale") || n.Contains("offer") => "tag",
+            var n when n.Contains("star") || n.Contains("featured") || n.Contains("special") => "star",
+            _ => "folder"
+        };
+
+        // Keyword matching for Colors
+        var color = lowerName switch
+        {
+            var n when n.Contains("coffee") || n.Contains("espresso") => "orange",
+            var n when n.Contains("bakery") || n.Contains("pastry") => "amber",
+            var n when n.Contains("food") || n.Contains("meal") => "rose",
+            var n when n.Contains("beverage") || n.Contains("drink") => "sky",
+            var n when n.Contains("dessert") || n.Contains("sweet") => "pink",
+            var n when n.Contains("leaf") || n.Contains("tea") || n.Contains("organic") => "emerald",
+            var n when n.Contains("merchandise") || n.Contains("shop") => "indigo",
+            var n when n.Contains("special") || n.Contains("star") => "yellow",
+            var n when n.Contains("sale") || n.Contains("tag") => "fuchsia",
+            _ => "primary"
+        };
+
+        // Fallbacks for unknown categories
+        if (icon == "folder")
+        {
+            var icons = new[] { "folder", "bookmark", "box", "archive", "layers" };
+            icon = icons[Math.Abs(name.GetHashCode()) % icons.Length];
+        }
+
+        if (color == "primary")
+        {
+            var colors = new[] { "primary", "emerald", "orange", "indigo", "rose", "pink", "sky", "violet", "amber", "cyan", "fuchsia", "lime" };
+            color = colors[Math.Abs(name.GetHashCode() + 3) % colors.Length];
+        }
+
+        var bgGlow = color == "primary" ? "bg-primary/20" : $"bg-{color}-500/20";
+        var bgIcon = color == "primary" ? "bg-primary/10" : $"bg-{color}-500/10";
+        var textColor = color == "primary" ? "text-primary" : $"text-{color}-600";
+        var gradient = color == "primary" ? "from-primary/20 to-primary/5" : $"from-{color}-500/20 to-{color}-500/5";
+
+        return new CategoryUI
+        {
+            Icon = icon,
+            Color = color,
+            Gradient = gradient,
+            BgGlow = bgGlow,
+            BgIcon = bgIcon,
+            TextColor = textColor
+        };
+    }
+
+    private void GoToCategoryDetail(Guid id)
+    {
+        Navigation.NavigateTo($"/categories/{id}");
+    }
+
+    private void GoToAddCategory()
+    {
+        Navigation.NavigateTo("/categories/add");
+    }
+
+    private void Clear()
+    {
+        _pagedCategories = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initIcons");
+        }
+    }
+
+}
+
