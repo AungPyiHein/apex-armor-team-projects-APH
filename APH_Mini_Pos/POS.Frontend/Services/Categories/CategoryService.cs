@@ -11,6 +11,8 @@ public interface ICategoryService
     Task<ApiResponse<Guid>> CreateCategoryAsync(CreateCategoryRequest request);
     Task<ApiResponse<bool>> UpdateCategoryAsync(UpdateCategoryRequest request);
     Task<ApiResponse<bool>> DeleteCategoryAsync(Guid id);
+    Task<ApiResponse<PagedResponse<CategoryResponseDto>>> GetDeletedCategoriesAsync(PaginationFilter filter);
+    Task<ApiResponse<bool>> RestoreCategoryAsync(Guid id);
 }
 
 public class CategoryService : ICategoryService
@@ -101,6 +103,51 @@ public class CategoryService : ICategoryService
         try
         {
             var response = await _http.DeleteAsync($"/api/categories/{id}");
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<bool>>();
+            if (result != null) result.IsSuccess = response.IsSuccessStatusCode;
+            return result ?? new ApiResponse<bool> { IsSuccess = false, Message = "Error connecting to server" };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<bool> { IsSuccess = false, Message = $"Error: {ex.Message}" };
+        }
+    }
+
+    public async Task<ApiResponse<PagedResponse<CategoryResponseDto>>> GetDeletedCategoriesAsync(PaginationFilter filter)
+    {
+        try
+        {
+            var url = $"/api/categories/deleted?pageNumber={filter.PageNumber}&pageSize={filter.PageSize}";
+            if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+            {
+                url += $"&searchTerm={Uri.EscapeDataString(filter.SearchTerm)}";
+            }
+
+            var response = await _http.GetFromJsonAsync<ApiResponse<PagedResponse<CategoryResponseDto>>>(url);
+            if (response != null) response.IsSuccess = true;
+            return response ?? new ApiResponse<PagedResponse<CategoryResponseDto>>
+            {
+                IsSuccess = false,
+                Message = "Error connecting to server",
+                Data = new PagedResponse<CategoryResponseDto>(new List<CategoryResponseDto>(), 0, 1, 10)
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<PagedResponse<CategoryResponseDto>>
+            {
+                IsSuccess = false,
+                Message = $"Error: {ex.Message}",
+                Data = new PagedResponse<CategoryResponseDto>(new List<CategoryResponseDto>(), 0, 1, 10)
+            };
+        }
+    }
+
+    public async Task<ApiResponse<bool>> RestoreCategoryAsync(Guid id)
+    {
+        try
+        {
+            var response = await _http.PatchAsync($"/api/categories/{id}/restore", null);
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<bool>>();
             if (result != null) result.IsSuccess = response.IsSuccessStatusCode;
             return result ?? new ApiResponse<bool> { IsSuccess = false, Message = "Error connecting to server" };

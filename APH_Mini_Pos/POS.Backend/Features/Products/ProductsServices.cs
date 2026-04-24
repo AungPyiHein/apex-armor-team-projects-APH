@@ -47,6 +47,8 @@ namespace POS.Backend.Features.Products
         Task<Result<Guid>> CreateProductAsync(CreateProductRequest request);
         Task<Result> UpdateProductAsync(UpdateProductRequest request);
         Task<Result> DeleteProductAsync(Guid id);
+        Task<Result> RestoreProductAsync(Guid id);
+        Task<Result<PagedResponse<ProductsResponseDto>>> GetDeletedProductsAsync(PaginationFilter filter);
     }
 
     public class ProductsServices : IProductsServices
@@ -223,6 +225,79 @@ namespace POS.Backend.Features.Products
 
             await _context.SaveChangesAsync();
             return Result.Success();
+        }
+
+        public async Task<Result> RestoreProductAsync(Guid id)
+        {
+            var product = await _context.Products
+                .IgnoreQueryFilters()
+                .Include(p => p.Category)
+                .Include(p => p.Merchant)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (product == null) return Result.Failure("Product not found.");
+            if (product.DeletedAt == null) return Result.Failure("Product is not deleted.");
+
+            if (product.Merchant != null && product.Merchant.DeletedAt != null)
+            {
+                return Result.Failure("Cannot restore this product because the Merchant is deleted.");
+            }
+
+            if (product.Category != null && product.Category.DeletedAt != null)
+            {
+                return Result.Failure("Cannot restore this product because the Category is deleted. Restore the category first.");
+            }
+
+            product.DeletedAt = null;
+            await _context.SaveChangesAsync();
+            return Result.Success();
+        }
+
+        public async Task<Result<PagedResponse<ProductsResponseDto>>> GetDeletedProductsAsync(PaginationFilter filter)
+        {
+            var query = _context.Products
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(p => p.DeletedAt != null)
+                .AsQueryable();
+
+            if (_currentUser.Role == POS.Shared.Models.UserRole.MerchantAdmin || _currentUser.Role == POS.Shared.Models.UserRole.Staff)
+            {
+                query = query.Where(p => p.MerchantId == _currentUser.MerchantId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+            {
+                query = query.Where(p => EF.Functions.Like(p.Name, $"%{filter.SearchTerm}%") ||
+                                         EF.Functions.Like(p.Sku, $"%{filter.SearchTerm}%"));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            var products = await query
+                .Include(p => p.Category)
+                .Include(p => p.Merchant)
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            var response = products.Select(p => new ProductsResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Price = p.Price,
+                SKU = p.Sku,
+                Description = p.Description,
+                Barcode = p.Barcode,
+                CategoryName = p.Category?.Name ?? "No Category",
+                CategoryDescription = p.Category?.Description ?? "No Description",
+                CategoryId = p.CategoryId,
+                MerchantName = p.Merchant?.Name ?? "Unknown Merchant",
+                MerchantId = p.MerchantId
+            }).ToList();
+
+            var pagedResponse = new PagedResponse<ProductsResponseDto>(response, totalRecords, filter.PageNumber, filter.PageSize);
+            return Result<PagedResponse<ProductsResponseDto>>.Success(pagedResponse);
         }
     }
 }

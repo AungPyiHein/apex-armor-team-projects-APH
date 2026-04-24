@@ -8,6 +8,7 @@ namespace POS.Frontend.Services.Merchants;
 public interface IMerchantService
 {
     Task<ApiResponse<PagedResponse<MerchantResponseDto>>> GetAllMerchantsAsync(PaginationFilter filter);
+    Task<ApiResponse<MerchantResponseDto>> GetMerchantByIdAsync(Guid id);
     Task<ApiResponse<Guid>> CreateMerchantAsync(CreateMerchantRequest request);
     Task<ApiResponse> UpdateMerchantAsync(Guid id, UpdateMerchantRequest request);
     Task<ApiResponse> DeleteMerchantAsync(Guid id, bool force = false);
@@ -35,6 +36,20 @@ public class MerchantService : IMerchantService
         catch (Exception ex)
         {
             return new ApiResponse<PagedResponse<MerchantResponseDto>> { IsSuccess = false, Message = $"Error: {ex.Message}" };
+        }
+    }
+
+    public async Task<ApiResponse<MerchantResponseDto>> GetMerchantByIdAsync(Guid id)
+    {
+        try
+        {
+            var response = await _http.GetFromJsonAsync<ApiResponse<MerchantResponseDto>>($"/api/merchants/{id}");
+            if (response != null) response.IsSuccess = true;
+            return response ?? new ApiResponse<MerchantResponseDto> { IsSuccess = false, Message = "Merchant not found" };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<MerchantResponseDto> { IsSuccess = false, Message = $"Error: {ex.Message}" };
         }
     }
 

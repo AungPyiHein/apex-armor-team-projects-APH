@@ -43,8 +43,8 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var roleStr = User?.FindFirst(ClaimTypes.Role)?.Value;
-            return Enum.TryParse<UserRole>(roleStr, out var role) ? role : UserRole.Staff;
+            var roleStr = User?.FindFirst(ClaimTypes.Role)?.Value ?? User?.FindFirst("role")?.Value;
+            return Enum.TryParse<UserRole>(roleStr, true, out var role) ? role : UserRole.Staff;
         }
     }
 
@@ -52,7 +52,7 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var idString = User?.FindFirst("MerchantId")?.Value;
+            var idString = User?.FindFirst("MerchantId")?.Value ?? User?.FindFirst("merchantId")?.Value;
             return string.IsNullOrWhiteSpace(idString) ? null : Guid.Parse(idString);
         }
     }

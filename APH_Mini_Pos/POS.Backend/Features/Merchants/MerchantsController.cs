@@ -29,7 +29,7 @@ namespace POS.Backend.Features.Merchants
             return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Deleted Merchants retrieved successfully", Data = result.Value }) : BadRequest(new { IsSuccess = false, Message = result.Error });
         }
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,MerchantAdmin")]
+        [Authorize(Roles = "Admin,MerchantAdmin,Staff")]
         public async Task<IActionResult> GetMerchantById(Guid id)
         {
             var result = await _merchantsServices.GetMerchantByIdAsync(id);

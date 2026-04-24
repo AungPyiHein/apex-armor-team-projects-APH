@@ -54,5 +54,17 @@ namespace POS.Backend.Features.Products
             var result = await _productsServices.DeleteProductAsync(id);
             return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Product Deleted" }) : BadRequest(new { IsSuccess = false, Message = result.Error });
         }
+        [HttpPatch("{id}/restore")]
+        public async Task<IActionResult> RestoreProduct(Guid id)
+        {
+            var result = await _productsServices.RestoreProductAsync(id);
+            return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Product Restored" }) : BadRequest(new { IsSuccess = false, Message = result.Error });
+        }
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedProducts([FromQuery] PaginationFilter filter)
+        {
+            var result = await _productsServices.GetDeletedProductsAsync(filter);
+            return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Deleted products retrieved successfully", Data = result.Value }) : BadRequest(new { IsSuccess = false, Message = result.Error });
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace POS.Shared.Models
         public string? SearchTerm { get; set; }
         public Guid? CategoryId { get; set; }
         public Guid? BranchId { get; set; }
+        public Guid? ProcessedById { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public string? SortColumn { get; set; }

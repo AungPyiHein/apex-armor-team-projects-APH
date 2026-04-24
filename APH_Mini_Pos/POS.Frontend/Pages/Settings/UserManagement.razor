@@ -414,12 +414,12 @@
     private Guid? CallerMerchantId;
     private Guid? CallerBranchId;
 
-    // Available roles based on caller's role
+    // Available roles based on caller's role (Customers are managed on the Customer page)
     private IEnumerable<UserRole> AvailableRoles => CallerRole switch
     {
-        "Admin" => Enum.GetValues<UserRole>(),
-        "MerchantAdmin" => new[] { UserRole.MerchantAdmin, UserRole.Staff, UserRole.Customer },
-        _ => new[] { UserRole.Customer }   // Staff can only create Customer
+        "Admin" => new[] { UserRole.Admin, UserRole.MerchantAdmin, UserRole.Staff },
+        "MerchantAdmin" => new[] { UserRole.MerchantAdmin, UserRole.Staff },
+        _ => new[] { UserRole.Staff }
     };
 
     private static string GetRoleLabel(UserRole role) => role switch
@@ -603,8 +603,7 @@
         UserRole defaultRole = CallerRole switch
         {
             "Admin" => UserRole.Admin,
-            "MerchantAdmin" => UserRole.Staff,
-            _ => UserRole.Customer
+            _ => UserRole.Staff
         };
 
         CreateRequest = new CreateUserRequest 

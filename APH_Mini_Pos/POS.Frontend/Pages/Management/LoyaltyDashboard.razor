@@ -1,0 +1,413 @@
+@page "/management/loyalty"
+@using POS.Frontend.Models.Sales
+@using POS.Frontend.Services.Sales
+@using POS.Frontend.Services.Merchants
+@using POS.Frontend.Models.Merchants
+@using POS.Shared.Models
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,MerchantAdmin")]
+@inject ICustomerService CustomerService
+@inject IMerchantService MerchantService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+
+<div class="space-y-6">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Loyalty Overview</h2>
+            <p class="page-subtitle">Monitor loyalty program performance and activity</p>
+        </div>
+        <button class="btn-secondary flex items-center gap-2" @onclick="RefreshDashboard">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Refresh
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-header flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+            <div>
+                <div class="text-xs font-semibold text-muted uppercase tracking-wider">Merchant Scope</div>
+                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    @if (_selectedMerchant != null)
+                    {
+                        @_selectedMerchant.Name
+                    }
+                    else
+                    {
+                        <span>Select a merchant to load loyalty data</span>
+                    }
+                </div>
+            </div>
+            @if (_isAdmin)
+            {
+                <select class="form-input w-full sm:w-72" value="@(_selectedMerchantId?.ToString() ?? string.Empty)" @onchange="OnMerchantChanged">
+                    <option value="">Select merchant</option>
+                    @foreach (var merchant in _merchants)
+                    {
+                        <option value="@merchant.Id">@merchant.Name</option>
+                    }
+                </select>
+            }
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="kpi-card animate-pulse h-24"></div>
+            <div class="kpi-card animate-pulse h-24"></div>
+            <div class="kpi-card animate-pulse h-24"></div>
+        </div>
+        <div class="card animate-pulse h-96"></div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="kpi-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-muted uppercase tracking-wider">Active Rules</span>
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold">@(_stats?.RulesCount ?? 0)</div>
+                <p class="text-[10px] text-emerald-500 font-medium mt-1">Earning configurations active</p>
+            </div>
+
+            <div class="kpi-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-muted uppercase tracking-wider">Pending Claims</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold text-amber-600">@(_stats?.PendingRedemptions ?? 0)</div>
+                <p class="text-[10px] text-muted font-medium mt-1">Rewards awaiting fulfillment</p>
+            </div>
+
+            <div class="kpi-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-muted uppercase tracking-wider">Selected Merchant</span>
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold">@(_selectedMerchant != null ? 1 : 0)</div>
+                <p class="text-[10px] text-muted font-medium mt-1">Current merchant scope</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_scopeWarning))
+        {
+            <div class="card">
+                <div class="px-4 py-3 text-sm text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg">
+                    @_scopeWarning
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-header border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <div class="flex gap-4">
+                    <button class="text-xs font-bold uppercase tracking-widest @(_selectedTab == "redemptions" ? "text-accent border-b-2 border-accent pb-1" : "text-muted hover:text-gray-700")"
+                            @onclick='() => SwitchTab("redemptions")'>
+                        Redemptions
+                    </button>
+                    <button class="text-xs font-bold uppercase tracking-widest @(_selectedTab == "ledger" ? "text-accent border-b-2 border-accent pb-1" : "text-muted hover:text-gray-700")"
+                            @onclick='() => SwitchTab("ledger")'>
+                        Merchant Ledger
+                    </button>
+                </div>
+            </div>
+
+            @if (_selectedTab == "redemptions")
+            {
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Reward</th>
+                                <th>Customer</th>
+                                <th class="text-right">Cost</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_history != null && _history.Items.Any())
+                            {
+                                @foreach (var item in _history.Items)
+                                {
+                                    <tr>
+                                        <td class="text-xs text-muted whitespace-nowrap">@(item.RedeemedAt?.ToString("MMM dd, HH:mm") ?? "-")</td>
+                                        <td>
+                                            <div class="font-bold text-gray-900 dark:text-white">@item.RewardName</div>
+                                            <div class="text-[10px] text-muted">ID: @item.Id.ToString().Substring(0,8)</div>
+                                        </td>
+                                        <td>
+                                            <div class="font-semibold text-gray-900 dark:text-white">@(string.IsNullOrWhiteSpace(item.CustomerName) ? "Unknown Customer" : item.CustomerName)</div>
+                                            <div class="font-mono text-[10px] text-muted">@item.ExternalUserId</div>
+                                        </td>
+                                        <td class="text-right font-bold text-red-500">
+                                            -@item.PointCost.ToString("N0") <span class="text-[10px] font-normal">pts</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @(item.Status == "Fulfilled" ? "badge-success" : item.Status == "Pending" ? "badge-warning" : "badge-info")">
+                                                @item.Status
+                                            </span>
+                                        </td>
+                                        <td class="text-right">
+                                            @if (string.Equals(item.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                var isBusy = _fulfillingRedemptionIds.Contains(item.Id);
+                                                <button class="btn-secondary py-1 px-2 text-xs"
+                                                        disabled="@isBusy"
+                                                        @onclick="() => FulfillRedemption(item.Id)">
+                                                    @(isBusy ? "Fulfilling..." : "Mark Fulfill")
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-xs text-muted">-</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-20 text-muted italic">No redemption history found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (_history != null && _history.TotalCount > _history.PageSize)
+                {
+                    <div class="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-muted">
+                        <span>Showing @(_history.Items.Count) of @(_history.TotalCount) records</span>
+                        <div class="flex gap-2">
+                            <button class="btn-ghost py-1" disabled="@(_history.Page <= 1)" @onclick="() => ChangePage(_history.Page - 1)">Previous</button>
+                            <button class="btn-ghost py-1" disabled="@(_history.Page * _history.PageSize >= _history.TotalCount)" @onclick="() => ChangePage(_history.Page + 1)">Next</button>
+                        </div>
+                    </div>
+                }
+            }
+            else if (_selectedTab == "ledger" && _isAdmin)
+            {
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Activity</th>
+                                <th>Reference</th>
+                                <th class="text-right">Points</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_ledger != null && _ledger.Items.Any())
+                            {
+                                @foreach (var item in _ledger.Items)
+                                {
+                                    <tr>
+                                        <td class="text-xs text-muted whitespace-nowrap">@item.CreatedAt.ToString("MMM dd, HH:mm")</td>
+                                        <td>
+                                            <div class="font-bold text-gray-900 dark:text-white">@item.Description</div>
+                                            <div class="text-[10px] text-muted">Key: @item.EventKey</div>
+                                        </td>
+                                        <td>
+                                            <span class="font-mono text-xs text-muted">@item.ReferenceId</span>
+                                        </td>
+                                        <td class="text-right font-bold @(item.PointDelta > 0 ? "text-emerald-500" : "text-red-500")">
+                                            @(item.PointDelta > 0 ? "+" : "")@item.PointDelta.ToString("N0")
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center py-20 text-muted italic">No ledger activity found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (_ledger != null && _ledger.TotalCount > _ledger.PageSize)
+                {
+                    <div class="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-muted">
+                        <span>Showing @(_ledger.Items.Count) of @(_ledger.TotalCount) records</span>
+                        <div class="flex gap-2">
+                            <button class="btn-ghost py-1" disabled="@(_ledger.Page <= 1)" @onclick="() => ChangePage(_ledger.Page - 1)">Previous</button>
+                            <button class="btn-ghost py-1" disabled="@(_ledger.Page * _ledger.PageSize >= _ledger.TotalCount)" @onclick="() => ChangePage(_ledger.Page + 1)">Next</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAdmin = false;
+    private string _selectedTab = "redemptions";
+    private LoyaltyAdminStatsResponse? _stats;
+    private PagedRedemptionHistoryResponse? _history;
+    private PagedLedgerHistoryResponse? _ledger;
+    private int _currentPage = 1;
+    private List<MerchantResponseDto> _merchants = new();
+    private Guid? _selectedMerchantId;
+    private MerchantResponseDto? _selectedMerchant;
+    private string _scopeWarning = string.Empty;
+    private HashSet<Guid> _fulfillingRedemptionIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = authState.User.IsInRole("Admin");
+        var merchantClaim = authState.User.FindFirst("MerchantId")?.Value ?? authState.User.FindFirst("merchantId")?.Value;
+
+        if (_isAdmin)
+        {
+            await LoadMerchantsForAdmin();
+        }
+        else if (Guid.TryParse(merchantClaim, out var merchantId))
+        {
+            _selectedMerchantId = merchantId;
+            var merchantResponse = await MerchantService.GetMerchantByIdAsync(merchantId);
+            if (merchantResponse.IsSuccess && merchantResponse.Data != null)
+            {
+                _selectedMerchant = merchantResponse.Data;
+            }
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _scopeWarning = string.Empty;
+        StateHasChanged();
+
+        if (!_selectedMerchantId.HasValue || _selectedMerchantId == Guid.Empty)
+        {
+            _stats = new LoyaltyAdminStatsResponse();
+            _history = new PagedRedemptionHistoryResponse();
+            _ledger = new PagedLedgerHistoryResponse();
+            _isLoading = false;
+            StateHasChanged();
+            return;
+        }
+
+        var statsTask = CustomerService.GetAdminStatsAsync(_selectedMerchantId);
+        
+        if (_selectedTab == "redemptions")
+        {
+            var historyResponse = await CustomerService.GetRedemptionHistoryAsync(_selectedMerchantId, _currentPage, 10);
+            if (historyResponse.IsSuccess) _history = historyResponse.Data;
+            else
+            {
+                _history = new PagedRedemptionHistoryResponse();
+                _scopeWarning = "Selected merchant has no configured loyalty reward system yet.";
+            }
+        }
+        else
+        {
+            var ledgerResponse = await CustomerService.GetGlobalLedgerAsync(_selectedMerchantId, _currentPage, 10);
+            if (ledgerResponse.IsSuccess) _ledger = ledgerResponse.Data;
+            else
+            {
+                _ledger = new PagedLedgerHistoryResponse();
+                _scopeWarning = "Selected merchant has no configured loyalty ledger data yet.";
+            }
+        }
+        
+        var statsResult = await statsTask;
+        if (statsResult.IsSuccess) _stats = statsResult.Data;
+        else
+        {
+            _stats = new LoyaltyAdminStatsResponse();
+            _scopeWarning = "Selected merchant has no active loyalty configuration yet.";
+        }
+
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadMerchantsForAdmin()
+    {
+        var response = await MerchantService.GetAllMerchantsAsync(new PaginationFilter { PageNumber = 1, PageSize = 200 });
+        if (response.IsSuccess && response.Data?.Data != null)
+        {
+            _merchants = response.Data.Data.ToList();
+            _selectedMerchantId = _merchants.FirstOrDefault()?.Id;
+            _selectedMerchant = _merchants.FirstOrDefault();
+        }
+    }
+
+    private async Task OnMerchantChanged(ChangeEventArgs args)
+    {
+        if (Guid.TryParse(args.Value?.ToString(), out var selected))
+        {
+            _selectedMerchantId = selected;
+            _selectedMerchant = _merchants.FirstOrDefault(m => m.Id == selected);
+        }
+        else
+        {
+            _selectedMerchantId = null;
+            _selectedMerchant = null;
+        }
+
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task RefreshDashboard()
+    {
+        await LoadData();
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        if (_selectedTab == tab) return;
+        _selectedTab = tab;
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task ChangePage(int newPage)
+    {
+        _currentPage = newPage;
+        await LoadData();
+    }
+
+    private async Task FulfillRedemption(Guid redemptionId)
+    {
+        if (_fulfillingRedemptionIds.Contains(redemptionId))
+        {
+            return;
+        }
+
+        _fulfillingRedemptionIds.Add(redemptionId);
+        try
+        {
+            var result = await CustomerService.FulfillRedemptionAsync(redemptionId, _selectedMerchantId);
+            if (!result.IsSuccess)
+            {
+                _scopeWarning = result.Message ?? "Failed to fulfill redemption.";
+            }
+            else
+            {
+                _scopeWarning = string.Empty;
+            }
+        }
+        finally
+        {
+            _fulfillingRedemptionIds.Remove(redemptionId);
+            await LoadData();
+        }
+    }
+}

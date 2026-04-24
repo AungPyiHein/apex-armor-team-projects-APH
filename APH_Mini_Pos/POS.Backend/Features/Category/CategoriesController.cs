@@ -58,5 +58,11 @@ namespace POS.Backend.Features.Category
             var result = await _categoryServices.RestoreCategoryAsync(id);
             return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Category Restored" }) : BadRequest(new { IsSuccess = false, Message = result.Error });
         }
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedCategories([FromQuery] PaginationFilter filter)
+        {
+            var result = await _categoryServices.GetDeletedCategoriesAsync(filter);
+            return result.IsSuccess ? Ok(new { IsSuccess = true, Message = "Deleted categories retrieved successfully", Data = result.Value }) : BadRequest(new { IsSuccess = false, Message = result.Error });
+        }
     }
 }

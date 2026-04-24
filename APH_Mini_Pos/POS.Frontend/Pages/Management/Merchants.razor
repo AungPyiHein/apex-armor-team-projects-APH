@@ -187,6 +187,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
                     <input type="text" class="form-input w-full" @bind="CurrentMerchant.PhoneNumber" placeholder="e.g. +95 9..." />
                 </div>
+
                 @if (IsEditMode)
                 {
                     <div class="flex items-center gap-2">
@@ -369,7 +370,7 @@
             Name = merchant.Name,
             ContactEmail = merchant.ContactEmail,
             Address = merchant.Address,
-            PhoneNumber = merchant.PhoneNumber
+            PhoneNumber = merchant.PhoneNumber,
         };
         ShowModal = true;
     }

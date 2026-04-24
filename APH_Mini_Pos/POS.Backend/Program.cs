@@ -13,6 +13,7 @@ using POS.Backend.Features.Inventory;
 using POS.Backend.Features.Sales;
 using POS.Backend.Features.User;
 using POS.Backend.Common;
+using POS.Backend.Features.Loyalty;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 
@@ -39,6 +40,10 @@ builder.Services.AddScoped<IUserServices, UserServices>();
 builder.Services.AddScoped<ICustomerServices, CustomerServices>();
 builder.Services.AddScoped<IInventoryServices, InventoryServices>();
 builder.Services.AddScoped<ISalesServices, SalesServices>();
+
+// Loyalty API Configuration
+builder.Services.Configure<LoyaltySettings>(builder.Configuration.GetSection("LoyaltyApi"));
+builder.Services.AddHttpClient<ILoyaltyServices, LoyaltyServices>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();

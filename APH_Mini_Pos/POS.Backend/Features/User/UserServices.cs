@@ -106,6 +106,7 @@ namespace POS.Backend.Features.User
             user.PasswordHash = _passwordHasher.HashPassword(user, request.PlainPassword);
 
             _context.Users.Add(user);
+
             await _context.SaveChangesAsync();
 
             return Result<Guid>.Success(user.Id);
@@ -240,6 +241,7 @@ namespace POS.Backend.Features.User
             }
 
             user.UpdatedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
             return Result<bool>.Success(true);
         }
@@ -264,6 +266,7 @@ namespace POS.Backend.Features.User
             }
 
             user.DeletedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
 
             return Result<bool>.Success(true);

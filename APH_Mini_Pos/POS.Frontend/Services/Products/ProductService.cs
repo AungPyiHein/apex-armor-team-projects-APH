@@ -11,6 +11,8 @@ public interface IProductService
     Task<ApiResponse<Guid>> CreateProductAsync(CreateProductRequest request);
     Task<ApiResponse<bool>> UpdateProductAsync(UpdateProductRequest request);
     Task<ApiResponse<bool>> DeleteProductAsync(Guid id);
+    Task<ApiResponse<PagedResponse<ProductsResponseDto>>> GetDeletedProductsAsync(PaginationFilter filter);
+    Task<ApiResponse<bool>> RestoreProductAsync(Guid id);
 }
 public class ProductService : IProductService
 {
@@ -77,5 +79,50 @@ public class ProductService : IProductService
         var result = await response.Content.ReadFromJsonAsync<ApiResponse<bool>>();
         if (result != null) result.IsSuccess = response.IsSuccessStatusCode;
         return result ?? new ApiResponse<bool> { IsSuccess = false, Message = "Error deleting product" };
+    }
+
+    public async Task<ApiResponse<PagedResponse<ProductsResponseDto>>> GetDeletedProductsAsync(PaginationFilter filter)
+    {
+        var url = $"/api/products/deleted?pageNumber={filter.PageNumber}&pageSize={filter.PageSize}";
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            url += $"&searchTerm={Uri.EscapeDataString(filter.SearchTerm)}";
+        }
+
+        try
+        {
+            var response = await _http.GetFromJsonAsync<ApiResponse<PagedResponse<ProductsResponseDto>>>(url);
+            if (response != null) response.IsSuccess = true;
+            return response ?? new ApiResponse<PagedResponse<ProductsResponseDto>>
+            {
+                IsSuccess = false,
+                Message = "Error connecting to server",
+                Data = new PagedResponse<ProductsResponseDto>(new List<ProductsResponseDto>(), 0, 1, 10)
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<PagedResponse<ProductsResponseDto>>
+            {
+                IsSuccess = false,
+                Message = $"Error: {ex.Message}",
+                Data = new PagedResponse<ProductsResponseDto>(new List<ProductsResponseDto>(), 0, 1, 10)
+            };
+        }
+    }
+
+    public async Task<ApiResponse<bool>> RestoreProductAsync(Guid id)
+    {
+        try
+        {
+            var response = await _http.PatchAsync($"/api/products/{id}/restore", null);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<bool>>();
+            if (result != null) result.IsSuccess = response.IsSuccessStatusCode;
+            return result ?? new ApiResponse<bool> { IsSuccess = false, Message = "Error connecting to server" };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<bool> { IsSuccess = false, Message = $"Error: {ex.Message}" };
+        }
     }
 }

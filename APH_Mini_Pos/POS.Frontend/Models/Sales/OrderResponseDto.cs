@@ -9,6 +9,7 @@ public class OrderResponseDto
     public string CustomerName { get; set; } = "Walk-in Customer";
     public string BranchName { get; set; } = "Main Branch";
     public string Status { get; set; } = "Completed";
+    public string CashierName { get; set; } = "Unknown";
     public List<OrderItemResponseDto> Items { get; set; } = new();
 }
 

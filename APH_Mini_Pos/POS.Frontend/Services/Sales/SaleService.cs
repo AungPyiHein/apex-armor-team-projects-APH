@@ -30,6 +30,18 @@ public class SaleService : ISaleService
             {
                 url += $"&branchId={filter.BranchId.Value}";
             }
+            if (filter.ProcessedById.HasValue)
+            {
+                url += $"&processedById={filter.ProcessedById.Value}";
+            }
+            if (filter.StartDate.HasValue)
+            {
+                url += $"&startDate={filter.StartDate.Value:yyyy-MM-dd}";
+            }
+            if (filter.EndDate.HasValue)
+            {
+                url += $"&endDate={filter.EndDate.Value:yyyy-MM-dd}";
+            }
             var response = await _http.GetFromJsonAsync<ApiResponse<PagedResponse<OrderResponseDto>>>(url);
             if (response != null) response.IsSuccess = true;
             return response ?? new ApiResponse<PagedResponse<OrderResponseDto>> { IsSuccess = false, Message = "Error connecting to server" };
