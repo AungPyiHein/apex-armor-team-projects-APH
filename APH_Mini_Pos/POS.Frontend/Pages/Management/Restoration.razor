@@ -1,16 +1,43 @@
 @page "/restoration"
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = "Admin,MerchantAdmin")]
 @layout MainLayout
 @using POS.Frontend.Models.Merchants
+@using POS.Frontend.Models.Categories
+@using POS.Frontend.Models.Products
+@using POS.Frontend.Services.Merchants
+@using POS.Frontend.Services.Categories
+@using POS.Frontend.Services.Products
 @inject IMerchantService MerchantService
+@inject ICategoryService CategoryService
+@inject IProductService ProductService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="space-y-5">
 
     <div class="page-header">
         <div>
-            <h2 class="page-title">Merchant Restoration</h2>
-            <p class="page-subtitle">View and restore previously deleted businesses</p>
+            <h2 class="page-title">Data Restoration</h2>
+            <p class="page-subtitle">View and restore previously deleted records</p>
         </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="flex border-b border-gray-100 dark:border-gray-800 mb-6">
+        @if (UserRole == "Admin")
+        {
+            <button class="px-6 py-3 text-sm font-medium transition-colors border-b-2 @(ActiveTab == "Merchants" ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700")"
+                    @onclick='() => SwitchTab("Merchants")'>
+                Merchants
+            </button>
+        }
+        <button class="px-6 py-3 text-sm font-medium transition-colors border-b-2 @(ActiveTab == "Categories" ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700")"
+                @onclick='() => SwitchTab("Categories")'>
+            Categories
+        </button>
+        <button class="px-6 py-3 text-sm font-medium transition-colors border-b-2 @(ActiveTab == "Products" ? "border-accent text-accent" : "border-transparent text-gray-500 hover:text-gray-700")"
+                @onclick='() => SwitchTab("Products")'>
+            Products
+        </button>
     </div>
 
     @if (IsLoading && !IsSearching)
@@ -31,7 +58,7 @@
             <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between w-full">
                 <div class="flex gap-3 flex-wrap items-center">
                     <div class="relative">
-                        <input type="text" placeholder="Search deleted merchants…" class="form-input max-w-xs pl-9" 
+                        <input type="text" placeholder="Search deleted @ActiveTab.ToLower()…" class="form-input max-w-xs pl-9" 
                                @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
                         <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         @if (IsSearching)
@@ -44,50 +71,122 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Merchant Name</th>
-                        <th>Contact Email</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (!MerchantList.Any())
-                    {
+            @if (ActiveTab == "Merchants")
+            {
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <td colspan="4" class="text-center py-10 text-muted italic">No deleted merchants found</td>
+                            <th>Merchant Name</th>
+                            <th>Contact Email</th>
+                            <th class="text-right">Actions</th>
                         </tr>
-                    }
-                    @foreach (var m in MerchantList)
-                    {
-                        <tr>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                                        <span class="text-red-700 dark:text-red-300 font-bold text-xs">@m.Name[0]</span>
+                    </thead>
+                    <tbody>
+                        @if (!MerchantList.Any())
+                        {
+                            <tr>
+                                <td colspan="3" class="text-center py-10 text-muted italic">No deleted merchants found</td>
+                            </tr>
+                        }
+                        @foreach (var m in MerchantList)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                                            <span class="text-red-700 dark:text-red-300 font-bold text-xs">@m.Name[0]</span>
+                                        </div>
+                                        <span class="font-medium text-gray-800 dark:text-gray-200 line-through opacity-70">@m.Name</span>
                                     </div>
-                                    <span class="font-medium text-gray-800 dark:text-gray-200 line-through opacity-70">@m.Name</span>
-                                </div>
-                            </td>
-                            <td class="text-muted opacity-70">
-                                @m.ContactEmail
-                                @if (!string.IsNullOrEmpty(m.PhoneNumber))
-                                {
-                                    <div class="text-xs italic mt-0.5 opacity-70">@m.PhoneNumber</div>
-                                }
-                            </td>
-                            <td>
-                                <span class="badge badge-danger">Deleted</span>
-                            </td>
-                            <td>
-                                <button class="btn-secondary py-1 px-3 text-xs" @onclick="() => ShowRestoreModal(m.Id, m.Name)">Restore</button>
-                            </td>
+                                </td>
+                                <td class="text-muted opacity-70">@m.ContactEmail</td>
+                                <td class="text-right">
+                                    <button class="btn-secondary py-1 px-3 text-xs" @onclick="() => ShowRestoreModal(m.Id, m.Name)">Restore</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (ActiveTab == "Categories")
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category Name</th>
+                            <th>Description</th>
+                            <th class="text-right">Actions</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @if (!CategoryList.Any())
+                        {
+                            <tr>
+                                <td colspan="3" class="text-center py-10 text-muted italic">No deleted categories found</td>
+                            </tr>
+                        }
+                        @foreach (var c in CategoryList)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                                            <span class="text-red-700 dark:text-red-300 font-bold text-xs">@c.Name[0]</span>
+                                        </div>
+                                        <span class="font-medium text-gray-800 dark:text-gray-200 line-through opacity-70">@c.Name</span>
+                                    </div>
+                                </td>
+                                <td class="text-muted opacity-70">@c.Description</td>
+                                <td class="text-right">
+                                    <button class="btn-secondary py-1 px-3 text-xs" @onclick='() => ConfirmRestoreItem(c.Id, "Category")'>Restore</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (ActiveTab == "Products")
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!ProductList.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center py-10 text-muted italic">No deleted products found</td>
+                            </tr>
+                        }
+                        @foreach (var p in ProductList)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                                            <span class="text-red-700 dark:text-red-300 font-bold text-xs">@p.Name[0]</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <span class="font-medium text-gray-800 dark:text-gray-200 line-through opacity-70 block truncate">@p.Name</span>
+                                            <span class="text-[10px] text-muted font-mono opacity-50">@p.SKU</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-gray-100 dark:bg-gray-800 text-gray-500 text-[10px]">@p.CategoryName</span></td>
+                                <td class="text-muted opacity-70 text-sm">@p.Price.ToString("N0") MMK</td>
+                                <td class="text-right">
+                                    <button class="btn-secondary py-1 px-3 text-xs" @onclick='() => ConfirmRestoreItem(p.Id, "Product")'>Restore</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
 
         @if (!IsLoading && TotalRecords > 0)
@@ -103,42 +202,40 @@
     </div>
 </div>
 
-@if (ShowModal)
+<!-- Merchant Restore Modal (with options) -->
+@if (ShowMerchantModal)
 {
     <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-accent/50">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Restore Options</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Restore Merchant</h3>
                 <button @onclick="CloseModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
             <div class="p-6">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">How would you like to restore <strong>@RestoreMerchantName</strong>?</p>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">How would you like to restore <strong>@RestoreTargetName</strong>?</p>
                 <div class="space-y-3">
                     <label class="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                         <input type="radio" class="mt-1" name="restoreMode" checked="@(!RestoreAll)" @onchange="() => RestoreAll = false" />
                         <div>
                             <p class="font-semibold text-gray-900 dark:text-gray-100">Restore Merchant Only</p>
-                            <p class="text-xs text-gray-500">Only the merchant object will be restored. Affiliated branches, users, and products will remain deleted.</p>
+                            <p class="text-xs text-gray-500">Only the merchant will be restored. Branches and users remain deleted.</p>
                         </div>
                     </label>
                     <label class="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                         <input type="radio" class="mt-1" name="restoreMode" checked="@(RestoreAll)" @onchange="() => RestoreAll = true" />
                         <div>
                             <p class="font-semibold text-gray-900 dark:text-gray-100">Restore All Affiliated Data</p>
-                            <p class="text-xs text-gray-500">The merchant, and ALL associated branches, users, products, and categories will be restored entirely.</p>
+                            <p class="text-xs text-gray-500">The merchant and ALL its associated data will be restored entirely.</p>
                         </div>
                     </label>
                 </div>
             </div>
             <div class="px-6 py-4 bg-gray-50 dark:bg-surface flex justify-end gap-3 border-t border-gray-100 dark:border-gray-800">
                 <button @onclick="CloseModal" class="btn-ghost">Cancel</button>
-                <button @onclick="ConfirmRestore" class="btn-primary flex items-center gap-2" disabled="@IsSaving">
-                    @if (IsSaving)
-                    {
-                        <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                    }
+                <button @onclick="ConfirmMerchantRestore" class="btn-primary" disabled="@IsSaving">
+                    @if (IsSaving) { <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 inline-block align-middle"></div> }
                     Confirm Restore
                 </button>
             </div>
@@ -147,7 +244,13 @@
 }
 
 @code {
+    private string ActiveTab = "Merchants";
+    private string UserRole = "";
+    
     private List<MerchantResponseDto> MerchantList = new();
+    private List<CategoryResponseDto> CategoryList = new();
+    private List<ProductsResponseDto> ProductList = new();
+    
     private bool IsLoading = true;
     private bool IsSearching = false;
     private bool IsSaving = false;
@@ -155,10 +258,10 @@
     private string searchTerm = string.Empty;
     private CancellationTokenSource? _searchCts;
 
-    // Restore Modal
-    private bool ShowModal = false;
-    private Guid? RestoreMerchantId;
-    private string RestoreMerchantName = "";
+    // Merchant Modal
+    private bool ShowMerchantModal = false;
+    private Guid? RestoreTargetId;
+    private string RestoreTargetName = "";
     private bool RestoreAll = false;
 
     // Pagination
@@ -169,13 +272,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadMerchants();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        UserRole = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value 
+                   ?? authState.User.FindFirst("role")?.Value ?? "";
+
+        if (UserRole != "Admin")
+        {
+            ActiveTab = "Categories";
+        }
+        
+        await LoadData();
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        if (ActiveTab == tab) return;
+        ActiveTab = tab;
+        searchTerm = "";
+        CurrentPage = 1;
+        await LoadData();
     }
 
     private async Task HandlePageChanged(int newPage)
     {
         CurrentPage = newPage;
-        await LoadMerchants();
+        await LoadData();
     }
 
     private async Task HandleSearch(KeyboardEventArgs e)
@@ -188,19 +309,17 @@
         {
             await Task.Delay(300, token);
             CurrentPage = 1;
-            await LoadMerchants(isSearching: true);
+            await LoadData(isSearching: true);
         }
-        catch (TaskCanceledException)
-        {
-            // Ignore cancellation
-        }
+        catch (TaskCanceledException) { }
     }
 
-    private async Task LoadMerchants(bool isSearching = false)
+    private async Task LoadData(bool isSearching = false)
     {
         if (!isSearching) IsLoading = true;
         IsSearching = isSearching;
         ErrorMessage = "";
+        
         try
         {
             var filter = new POS.Shared.Models.PaginationFilter 
@@ -209,16 +328,39 @@
                 PageSize = PageSize,
                 SearchTerm = searchTerm
             };
-            var response = await MerchantService.GetDeletedMerchantsAsync(filter);
-            if (response.IsSuccess && response.Data != null)
+
+            if (ActiveTab == "Merchants")
             {
-                MerchantList = response.Data.Data.ToList();
-                TotalPages = response.Data.TotalPages;
-                TotalRecords = response.Data.TotalRecords;
+                var response = await MerchantService.GetDeletedMerchantsAsync(filter);
+                if (response.IsSuccess && response.Data != null)
+                {
+                    MerchantList = response.Data.Data.ToList();
+                    TotalPages = response.Data.TotalPages;
+                    TotalRecords = response.Data.TotalRecords;
+                }
+                else ErrorMessage = response.Message;
             }
-            else
+            else if (ActiveTab == "Categories")
             {
-                ErrorMessage = response.Message;
+                var response = await CategoryService.GetDeletedCategoriesAsync(filter);
+                if (response.IsSuccess && response.Data != null)
+                {
+                    CategoryList = response.Data.Data.ToList();
+                    TotalPages = response.Data.TotalPages;
+                    TotalRecords = response.Data.TotalRecords;
+                }
+                else ErrorMessage = response.Message;
+            }
+            else if (ActiveTab == "Products")
+            {
+                var response = await ProductService.GetDeletedProductsAsync(filter);
+                if (response.IsSuccess && response.Data != null)
+                {
+                    ProductList = response.Data.Data.ToList();
+                    TotalPages = response.Data.TotalPages;
+                    TotalRecords = response.Data.TotalRecords;
+                }
+                else ErrorMessage = response.Message;
             }
         }
         catch (Exception ex)
@@ -234,42 +376,57 @@
 
     private void ShowRestoreModal(Guid id, string name)
     {
-        RestoreMerchantId = id;
-        RestoreMerchantName = name;
-        RestoreAll = false; // default
-        ShowModal = true;
+        RestoreTargetId = id;
+        RestoreTargetName = name;
+        RestoreAll = false;
+        ShowMerchantModal = true;
     }
 
     private void CloseModal()
     {
-        ShowModal = false;
-        RestoreMerchantId = null;
+        ShowMerchantModal = false;
+        RestoreTargetId = null;
     }
 
-    private async Task ConfirmRestore()
+    private async Task ConfirmMerchantRestore()
     {
-        if (!RestoreMerchantId.HasValue) return;
-
+        if (!RestoreTargetId.HasValue) return;
         IsSaving = true;
-        ErrorMessage = "";
         try
         {
-            var response = await MerchantService.RestoreMerchantAsync(RestoreMerchantId.Value, RestoreAll);
+            var response = await MerchantService.RestoreMerchantAsync(RestoreTargetId.Value, RestoreAll);
             if (response.IsSuccess)
             {
-                ShowModal = false;
-                await LoadMerchants();
+                ShowMerchantModal = false;
+                await LoadData();
+            }
+            else ErrorMessage = response.Message ?? "Error restoring merchant";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private async Task ConfirmRestoreItem(Guid id, string type)
+    {
+        IsSaving = true;
+        try
+        {
+            ApiResponse<bool> response;
+            if (type == "Category")
+                response = await CategoryService.RestoreCategoryAsync(id);
+            else
+                response = await ProductService.RestoreProductAsync(id);
+
+            if (response.IsSuccess)
+            {
+                await LoadData();
             }
             else
             {
-                ErrorMessage = response.Message ?? "Error restoring merchant";
-                ShowModal = false;
+                ErrorMessage = response.Message ?? $"Error restoring {type.ToLower()}";
             }
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = "An unexpected error occurred: " + ex.Message;
-            ShowModal = false;
         }
         finally
         {

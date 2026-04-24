@@ -169,11 +169,34 @@
             <div class="flex justify-between text-sm font-bold text-gray-900 dark:text-gray-100 pt-2 border-t border-border">
                 <span>Total</span><span>@Total.ToString("N0") MMK</span>
             </div>
+            @if (selectedCustomerId.HasValue && selectedCustomerId.Value != Guid.Empty && CartItems.Any() && applyLoyalty)
+            {
+                <div class="flex justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400 pt-1">
+                    <span>Points to earn</span><span>+@CalculateEarnedPoints().ToString("N0")</span>
+                </div>
+            }
         </div>
+
+        <!-- Loyalty Toggle -->
+        @if (selectedCustomerId.HasValue && selectedCustomerId.Value != Guid.Empty)
+        {
+            <div class="px-5 pb-2 flex items-center justify-between">
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Apply Loyalty Points</span>
+                    <span class="text-[10px] text-gray-400">@(applyLoyalty ? $"Earns +{CalculateEarnedPoints():N0} pts" : "Skipped for this sale")</span>
+                </div>
+                <button class="relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none
+                              @(applyLoyalty ? "bg-accent" : "bg-gray-300 dark:bg-gray-600")"
+                        @onclick="() => applyLoyalty = !applyLoyalty">
+                    <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200
+                                @(applyLoyalty ? "translate-x-5" : "translate-x-0")"></span>
+                </button>
+            </div>
+        }
 
         <!-- Customer select -->
         <div class="px-5 pb-3">
-            <select class="form-input text-xs" @bind="selectedCustomerId">
+            <select class="form-input text-xs" value="@selectedCustomerId" @onchange="HandleCustomerChange">
                 <option value="">— Walk-in Customer —</option>
                 @foreach (var c in CustomerList)
                 {
@@ -181,6 +204,93 @@
                 }
             </select>
         </div>
+
+        @if (selectedCustomerId.HasValue && selectedCustomerId.Value != Guid.Empty && selectedCustomerLoyalty != null)
+        {
+            <div class="px-5 pb-3">
+                <div class="p-3 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/30 rounded-xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Loyalty Account</span>
+                        @if (!string.IsNullOrEmpty(selectedCustomerLoyalty.Tier))
+                        {
+                            <span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 text-[9px] font-bold uppercase tracking-wider rounded">@selectedCustomerLoyalty.Tier</span>
+                        }
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-1">
+                        <span class="text-xl font-black text-indigo-600 dark:text-indigo-400">@selectedCustomerLoyalty.CurrentBalance.ToString("N0")</span>
+                        <span class="text-[10px] text-gray-500 font-medium">pts available</span>
+                    </div>
+                </div>
+            </div>
+
+            @if (reachableNow.Any() || reachableAfterSale.Any())
+            {
+                <div class="px-5 pb-3 space-y-2">
+                    @if (reachableNow.Any())
+                    {
+                        <div class="rounded-xl overflow-hidden shadow-md shadow-purple-200/60 dark:shadow-purple-900/20">
+                            <div class="bg-gradient-to-r from-violet-600 to-purple-700 px-3 py-2 flex items-center gap-1.5">
+                                <span class="text-sm">🎁</span>
+                                <p class="text-[11px] font-extrabold text-white uppercase tracking-widest flex-1">Rewards Available</p>
+                                <span class="text-[10px] bg-white/20 text-white font-bold px-1.5 py-0.5 rounded-full">@reachableNow.Count</span>
+                            </div>
+                            <div class="bg-white dark:bg-surface divide-y divide-purple-100 dark:divide-purple-900/30">
+                                @foreach (var reward in reachableNow)
+                                {
+                                    var rName = reward.Name.Contains(": ") ? reward.Name.Split(": ", 2)[1] : reward.Name;
+                                    var rState = GetPosClaimState(reward.Id);
+                                    var rIsPending = rState == PosClaimState.Pending;
+                                    var rIsSuccess = rState == PosClaimState.Success;
+                                    <div class="flex items-center gap-2 px-3 py-2">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate">@rName</p>
+                                            <p class="text-[10px] text-purple-500 font-semibold">@reward.PointCost.ToString("N0") pts</p>
+                                        </div>
+                                        @if (rIsSuccess)
+                                        {
+                                            <span class="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                Claimed!
+                                            </span>
+                                        }
+                                        else if (rIsPending)
+                                        {
+                                            <span class="flex items-center gap-1 text-[10px] font-bold text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                                                <div class="w-2.5 h-2.5 border-2 border-yellow-400/40 border-t-yellow-600 rounded-full animate-spin"></div>
+                                                Pending
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            var cartNotEmpty = CartItems.Any();
+                                            <button class="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all whitespace-nowrap shadow-sm
+                                                        @(cartNotEmpty ? "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed" : "bg-violet-600 hover:bg-violet-700 active:scale-95 text-white")"
+                                                    disabled="@(PosIsClaiming || cartNotEmpty)"
+                                                    title="@(cartNotEmpty ? "Complete checkout first" : "")"
+                                                    @onclick="() => ClaimRewardFromPos(reward)">
+                                                @(cartNotEmpty ? "Checkout first" : "Redeem")
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (reachableAfterSale.Any() && applyLoyalty)
+                    {
+                        <div class="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200/50 dark:border-emerald-800/20 rounded-xl">
+                            <p class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mb-1">✨ Unlocks after this purchase</p>
+                            @foreach (var r in reachableAfterSale)
+                            {
+                                var rn = r.Name.Contains(": ") ? r.Name.Split(": ", 2)[1] : r.Name;
+                                <p class="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium truncate">• @rn <span class="text-emerald-400">(@r.PointCost.ToString("N0") pts)</span></p>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
 
         <!-- Status Message -->
         @if (!string.IsNullOrEmpty(statusMessage))
@@ -230,10 +340,25 @@
     
     private Guid? selectedBranchId;
     private Guid? selectedCustomerId;
+    private LoyaltyAccountResponse? selectedCustomerLoyalty;
+    private List<LoyaltyRuleDto> LoyaltyRules = new();
+    private List<LoyaltyReward> ActiveRewards = new();
+    private List<LoyaltyReward> reachableNow = new();        // can claim with current balance
+    private List<LoyaltyReward> reachableAfterSale = new(); // can claim after earning points this sale
+
+    // POS reward claim state
+    private enum PosClaimState { Idle, Pending, Success }
+    private Dictionary<Guid, PosClaimState> PosClaimStates = new();
+    private bool PosIsClaiming = false;
+    private Dictionary<Guid, CancellationTokenSource> PosClaimCts = new();
+
     private bool isProcessing = false;
     private string statusMessage = "";
     private bool isError = false;
     private Guid? currentMerchantId;
+    private string currentMerchantName = "";
+    private string? currentMerchantLoyaltySystemId = null;
+    private bool applyLoyalty = true;
 
     private class CartItem
     {
@@ -270,7 +395,16 @@
 
         var merchantClaim = user.FindFirst("MerchantId")?.Value ?? user.FindFirst("merchantId")?.Value;
         if (Guid.TryParse(merchantClaim, out var mId))
+        {
             currentMerchantId = mId;
+            // Load merchant name for event key derivation
+            var merchantRes = await MerchantService.GetMerchantByIdAsync(mId);
+            if (merchantRes?.IsSuccess == true && merchantRes.Data != null)
+            {
+                currentMerchantName = merchantRes.Data.Name;
+                currentMerchantLoyaltySystemId = merchantRes.Data.LoyaltySystemId;
+            }
+        }
 
         // For Staff: load inventory first (from their locked branch) so products show correct stock
         if (IsStaff && selectedBranchId.HasValue)
@@ -279,13 +413,171 @@
                 LoadCategories(),
                 LoadBranches(),
                 LoadCustomers(),
-                LoadInventoryForBranch()
+                LoadInventoryForBranch(),
+                LoadLoyaltyData()
             );
             await LoadProducts();
         }
         else
         {
-            await Task.WhenAll(LoadCategories(), LoadProducts(), LoadBranches(), LoadCustomers());
+            await Task.WhenAll(LoadCategories(), LoadProducts(), LoadBranches(), LoadCustomers(), LoadLoyaltyData());
+        }
+    }
+
+    private async Task LoadLoyaltyData()
+    {
+        var rulesTask = CustomerService.GetLoyaltyRulesAsync();
+        await Task.WhenAll(rulesTask);
+
+        if (rulesTask.Result.IsSuccess && rulesTask.Result.Data != null)
+        {
+            LoyaltyRules = rulesTask.Result.Data;
+        }
+
+        ActiveRewards = new();
+    }
+
+    private async Task HandleCustomerChange(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        ClearPosClaimStates();
+        if (Guid.TryParse(value, out var guid))
+        {
+            selectedCustomerId = guid;
+            selectedCustomerLoyalty = null;
+            ActiveRewards = new();
+            reachableNow.Clear();
+            reachableAfterSale.Clear();
+            var loyaltyTask = CustomerService.GetCustomerLoyaltyAsync(guid);
+            var rewardsTask = CustomerService.GetActiveRewardsAsync(customerId: guid);
+            await Task.WhenAll(loyaltyTask, rewardsTask);
+
+            if (loyaltyTask.Result.IsSuccess)
+            {
+                selectedCustomerLoyalty = loyaltyTask.Result.Data;
+            }
+
+            if (rewardsTask.Result.IsSuccess && rewardsTask.Result.Data != null)
+            {
+                ActiveRewards = rewardsTask.Result.Data;
+            }
+
+            if (selectedCustomerLoyalty != null)
+            {
+                CalculateReachableRewards();
+            }
+        }
+        else
+        {
+            selectedCustomerId = null;
+            selectedCustomerLoyalty = null;
+            ActiveRewards = new();
+            reachableNow.Clear();
+            reachableAfterSale.Clear();
+        }
+    }
+
+    private decimal CalculateEarnedPoints()
+    {
+        string eventKey;
+        if (!string.IsNullOrWhiteSpace(currentMerchantLoyaltySystemId))
+        {
+            eventKey = "PURCHASE";
+        }
+        else
+        {
+            var safeKey = System.Text.RegularExpressions.Regex
+                .Replace((currentMerchantName.Length > 0 ? currentMerchantName : "DEFAULT").ToUpperInvariant(), @"[^A-Z0-9]", "_");
+            eventKey = $"{safeKey}_PURCHASE";
+        }
+
+        // Try merchant-specific rule first, then fall back to any active PURCHASE-like rule
+        var rule = LoyaltyRules.FirstOrDefault(r => r.IsActive && r.EventKey == eventKey)
+                ?? LoyaltyRules.FirstOrDefault(r => r.IsActive && r.EventKey.EndsWith("_PURCHASE"));
+        if (rule == null) return 0;
+
+        if (rule.CalculationType == "Ratio" && rule.Value > 0)
+            return Math.Floor(Total / rule.Value);
+        if (rule.CalculationType == "Fixed")
+            return rule.Value;
+        if (rule.CalculationType == "Multiplier")
+            return Math.Floor(Total * rule.Value);
+
+        return 0;
+    }
+
+    private void CalculateReachableRewards()
+    {
+        reachableNow.Clear();
+        reachableAfterSale.Clear();
+        if (selectedCustomerLoyalty != null)
+        {
+            var current = selectedCustomerLoyalty.CurrentBalance;
+            var afterSale = current + (applyLoyalty ? CalculateEarnedPoints() : 0);
+
+            // Rewards are now server-scoped by customer/merchant, avoid client-side prefix security logic.
+            var merchantRewards = ActiveRewards;
+
+            reachableNow       = merchantRewards.Where(r => r.IsActive && r.PointCost <= current).ToList();
+            reachableAfterSale = merchantRewards.Where(r => r.IsActive && r.PointCost > current && r.PointCost <= afterSale).ToList();
+        }
+    }
+
+    private PosClaimState GetPosClaimState(Guid id) =>
+        PosClaimStates.TryGetValue(id, out var s) ? s : PosClaimState.Idle;
+
+    private void ClearPosClaimStates()
+    {
+        foreach (var cts in PosClaimCts.Values) cts.Cancel();
+        PosClaimCts.Clear();
+        PosClaimStates.Clear();
+        PosIsClaiming = false;
+    }
+
+    private async Task ClaimRewardFromPos(LoyaltyReward reward)
+    {
+        if (selectedCustomerId == null || PosIsClaiming) return;
+        if (PosClaimStates.TryGetValue(reward.Id, out var ex) && ex == PosClaimState.Pending) return;
+
+        var cts = new CancellationTokenSource();
+        PosClaimCts[reward.Id] = cts;
+        PosIsClaiming = true;
+        PosClaimStates[reward.Id] = PosClaimState.Pending;
+        StateHasChanged();
+
+        var response = await CustomerService.ClaimRewardAsync(new ClaimRewardRequest
+        {
+            CustomerId = selectedCustomerId.Value,
+            RewardId = reward.Id,
+            Notes = "Claimed via POS Terminal"
+        });
+
+        PosIsClaiming = false;
+
+        if (response.IsSuccess)
+        {
+            PosClaimStates[reward.Id] = PosClaimState.Success;
+            var loyaltyRes = await CustomerService.GetCustomerLoyaltyAsync(selectedCustomerId.Value);
+            if (loyaltyRes.IsSuccess)
+            {
+                selectedCustomerLoyalty = loyaltyRes.Data;
+                CalculateReachableRewards();
+            }
+            StateHasChanged();
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                if (PosClaimStates.TryGetValue(reward.Id, out var s) && s == PosClaimState.Success)
+                    PosClaimStates[reward.Id] = PosClaimState.Idle;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            PosClaimStates[reward.Id] = PosClaimState.Idle;
+            statusMessage = response.Message ?? "Claim failed. Please try again.";
+            isError = true;
+            StateHasChanged();
         }
     }
 
@@ -293,24 +585,11 @@
     {
         try
         {
-            Guid? targetMerchant = currentMerchantId;
-            if (targetMerchant == null && !IsStaff)
+            var filter = new PaginationFilter { PageNumber = 1, PageSize = 1000 };
+            var response = await CustomerService.GetCustomersAsync(currentMerchantId, filter);
+            if (response?.Data?.Data != null)
             {
-                var merchantsResponse = await MerchantService.GetAllMerchantsAsync(new PaginationFilter { PageSize = 100 });
-                if (merchantsResponse?.Data?.Data != null && merchantsResponse.Data.Data.Any())
-                {
-                    targetMerchant = merchantsResponse.Data.Data.First().Id;
-                }
-            }
-
-            if (targetMerchant.HasValue)
-            {
-                var filter = new PaginationFilter { PageNumber = 1, PageSize = 100 };
-                var response = await CustomerService.GetCustomersAsync(targetMerchant.Value, filter);
-                if (response?.Data?.Data != null)
-                {
-                    CustomerList = response.Data.Data.ToList();
-                }
+                CustomerList = response.Data.Data.ToList();
             }
         }
         catch (Exception ex)
@@ -471,6 +750,7 @@
                     MaxStock = stock
                 });
         }
+        CalculateReachableRewards();
     }
 
     private void ChangeQty(CartItem item, int delta)
@@ -485,6 +765,7 @@
         }
         item.Qty += delta;
         if (item.Qty <= 0) CartItems.Remove(item);
+        CalculateReachableRewards();
     }
 
     private void HandleQtyInputChange(CartItem item, ChangeEventArgs e)
@@ -508,12 +789,15 @@
                 item.Qty = newQty;
             }
         }
+        CalculateReachableRewards();
     }
 
     private void ClearCart() 
     {
         CartItems.Clear();
         statusMessage = "";
+        reachableAfterSale.Clear();
+        CalculateReachableRewards();
     }
 
     private async Task HandleCheckout()
@@ -537,6 +821,7 @@
             {
                 BranchId = selectedBranchId.Value,
                 CustomerId = selectedCustomerId,
+                ApplyLoyalty = applyLoyalty,
                 Items = CartItems.Select(i => new CreateOrderItemRequest
                 {
                     ProductId = i.ProductId,
@@ -544,12 +829,34 @@
                 }).ToList()
             };
 
+            var earnedPoints = applyLoyalty ? CalculateEarnedPoints() : 0;
             var response = await SaleService.CreateOrderAsync(request);
             if (response != null && response.Message == "Order Created")
             {
-                statusMessage = "Order completed successfully!";
+                if (selectedCustomerId.HasValue && selectedCustomerId.Value != Guid.Empty)
+                {
+                    statusMessage = $"Order completed successfully! Earned {earnedPoints.ToString("N0")} points.";
+                }
+                else
+                {
+                    statusMessage = "Order completed successfully!";
+                }
                 isError = false;
                 CartItems.Clear();
+                selectedCustomerLoyalty = null;
+                reachableNow.Clear();
+                reachableAfterSale.Clear();
+                ClearPosClaimStates();
+                if (selectedCustomerId.HasValue)
+                {
+                    // Refresh loyalty data for selected customer
+                    var loyaltyRes = await CustomerService.GetCustomerLoyaltyAsync(selectedCustomerId.Value);
+                    if (loyaltyRes.IsSuccess)
+                    {
+                        selectedCustomerLoyalty = loyaltyRes.Data;
+                        CalculateReachableRewards();
+                    }
+                }
             }
             else
             {

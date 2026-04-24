@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using POS.Backend.Common;
 using POS.Backend.Features.Inventory;
+using POS.Backend.Features.Loyalty;
 using POS.data.Data;
 using POS.data.Entities;
 
@@ -11,6 +12,7 @@ namespace POS.Backend.Features.Sales
         public Guid BranchId { get; set; }
         public Guid? CustomerId { get; set; }
         public Guid? ProcessedById { get; set; }
+        public bool ApplyLoyalty { get; set; } = true;
         public List<CreateOrderItemRequest> Items { get; set; } = new();
     }
 
@@ -29,6 +31,7 @@ namespace POS.Backend.Features.Sales
         public string CustomerName { get; set; } = "Walk-in Customer";
         public string BranchName { get; set; } = "Main Branch";
         public string Status { get; set; } = "Completed";
+        public string CashierName { get; set; } = "Unknown";
         public List<OrderItemResponseDto> Items { get; set; } = new();
     }
 
@@ -53,12 +56,18 @@ namespace POS.Backend.Features.Sales
         private readonly AppDbContext _context;
         private readonly IInventoryServices _inventoryServices;
         private readonly ICurrentUserService _currentUser;
+        private readonly ILoyaltyServices _loyaltyServices;
+        private readonly ILogger<SalesServices> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public SalesServices(AppDbContext context, IInventoryServices inventoryServices, ICurrentUserService currentUser)
+        public SalesServices(AppDbContext context, IInventoryServices inventoryServices, ICurrentUserService currentUser, ILoyaltyServices loyaltyServices, ILogger<SalesServices> logger, IServiceScopeFactory scopeFactory)
         {
             _context = context;
             _inventoryServices = inventoryServices;
             _currentUser = currentUser;
+            _loyaltyServices = loyaltyServices;
+            _logger = logger;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task<Result<Guid>> CreateOrderAsync(CreateOrderRequest request)
@@ -71,12 +80,14 @@ namespace POS.Backend.Features.Sales
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var processedBy = request.ProcessedById ?? (_currentUser.IsAuthenticated && _currentUser.UserId != Guid.Empty ? _currentUser.UserId : null);
+
                 var order = new Order
                 {
                     Id = Guid.NewGuid(),
                     BranchId = request.BranchId,
                     CustomerId = request.CustomerId,
-                    ProcessedById = request.ProcessedById,
+                    ProcessedById = processedBy,
                     OrderDate = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
                     TotalAmount = 0
@@ -117,6 +128,63 @@ namespace POS.Backend.Features.Sales
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                // Process Loyalty Event after successful transaction in background
+                if (order.CustomerId.HasValue && request.ApplyLoyalty)
+                {
+                    var customer = await _context.Customers.FindAsync(order.CustomerId.Value);
+                    if (customer != null)
+                    {
+                        // Look up merchant name via branch to derive a shop-specific EventKey
+                        var branch = await _context.Branches
+                            .Include(b => b.Merchant)
+                            .FirstOrDefaultAsync(b => b.Id == request.BranchId);
+
+                        var merchantName = branch?.Merchant?.Name ?? "DEFAULT";
+                        // Derive the Loyalty Engine system ID as "APH_POS_{MERCHANTNAME}"
+                        // e.g. merchant "Unique" → "APH_POS_UNIQUE" matching the registered tenant.
+                        string? systemId = branch?.Merchant?.Name != null
+                            ? "APH_POS_" + System.Text.RegularExpressions.Regex.Replace(branch.Merchant.Name.ToUpperInvariant(), @"[^A-Z0-9]", "_")
+                            : null;
+                        string? apiKey = null;
+                        
+                        string eventKey;
+                        if (!string.IsNullOrWhiteSpace(systemId))
+                        {
+                            // If we have a shop-unique system ID, we use a standard PURCHASE event key 
+                            // because the system ID already scopes it to that merchant.
+                            eventKey = "PURCHASE";
+                        }
+                        else
+                        {
+                            // Sanitise: uppercase, replace spaces/special chars with underscore
+                            var safeKey = System.Text.RegularExpressions.Regex
+                                .Replace(merchantName.ToUpperInvariant(), @"[^A-Z0-9]", "_");
+                            eventKey = $"{safeKey}_PURCHASE";
+                        }
+
+                        var cId = customer.Id;
+                        var cName = customer.Name;
+                        var cEmail = customer.Email;
+                        var cPhone = customer.PhoneNumber;
+                        var oAmount = order.TotalAmount;
+                        var oId = order.Id;
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using var scope = _scopeFactory.CreateScope();
+                                var loyaltyService = scope.ServiceProvider.GetRequiredService<ILoyaltyServices>();
+                                await loyaltyService.ProcessSaleEventAsync(cId, cName, oAmount, oId, cEmail, cPhone, eventKey, systemId, apiKey);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to process loyalty event for order {OrderId}", oId);
+                            }
+                        });
+                    }
+                }
+
                 return Result<Guid>.Success(order.Id);
             }
             catch (Exception ex)
@@ -131,6 +199,9 @@ namespace POS.Backend.Features.Sales
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
+                .Include(o => o.Customer)
+                .Include(o => o.Branch)
+                .Include(o => o.ProcessedBy)
                 .Where(o => o.Id == id && o.DeletedAt == null)
                 .Select(o => new OrderResponseDto
                 {
@@ -141,6 +212,7 @@ namespace POS.Backend.Features.Sales
                     CustomerName = o.Customer != null ? o.Customer.Name : "Walk-in Customer",
                     BranchName = o.Branch != null ? o.Branch.Name : "Main Branch",
                     Status = "Completed",
+                    CashierName = o.ProcessedBy != null ? (!string.IsNullOrWhiteSpace(o.ProcessedBy.FullName) ? o.ProcessedBy.FullName : o.ProcessedBy.Username) : "Unknown",
                     Items = o.OrderItems.Select(oi => new OrderItemResponseDto
                     {
                         ProductId = oi.ProductId,
@@ -164,6 +236,7 @@ namespace POS.Backend.Features.Sales
                 .ThenInclude(oi => oi.Product)
                 .Include(o => o.Customer)
                 .Include(o => o.Branch)
+                .Include(o => o.ProcessedBy)
                 .Where(o => o.DeletedAt == null)
                 .OrderByDescending(o => o.OrderDate)
                 .AsQueryable();
@@ -175,6 +248,11 @@ namespace POS.Backend.Features.Sales
             else if (_currentUser.Role == POS.Shared.Models.UserRole.Staff)
             {
                 query = query.Where(o => o.BranchId == _currentUser.BranchId);
+            }
+
+            if (filter.ProcessedById.HasValue)
+            {
+                query = query.Where(o => o.ProcessedById == filter.ProcessedById.Value);
             }
 
             if (filter.BranchId.HasValue)
@@ -190,12 +268,13 @@ namespace POS.Backend.Features.Sales
 
             if (filter.StartDate.HasValue)
             {
-                query = query.Where(o => o.OrderDate >= filter.StartDate.Value);
+                var startDate = filter.StartDate.Value.Date;
+                query = query.Where(o => o.OrderDate >= startDate);
             }
-
+            
             if (filter.EndDate.HasValue)
             {
-                // Ensure the end date includes the entire day
+                // Ensure the end date includes the entire day (up to 23:59:59)
                 var endDate = filter.EndDate.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(o => o.OrderDate <= endDate);
             }
@@ -214,6 +293,7 @@ namespace POS.Backend.Features.Sales
                     CustomerName = o.Customer != null ? o.Customer.Name : "Walk-in Customer",
                     BranchName = o.Branch != null ? o.Branch.Name : "Main Branch",
                     Status = "Completed",
+                    CashierName = o.ProcessedBy != null ? (!string.IsNullOrWhiteSpace(o.ProcessedBy.FullName) ? o.ProcessedBy.FullName : o.ProcessedBy.Username) : "Unknown",
                     Items = o.OrderItems.Select(oi => new OrderItemResponseDto
                     {
                         ProductId = oi.ProductId,

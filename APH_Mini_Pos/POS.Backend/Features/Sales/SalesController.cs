@@ -6,6 +6,7 @@ namespace POS.Backend.Features.Sales
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin,MerchantAdmin,Staff")]
     public class SalesController : ControllerBase
     {
         private readonly ISalesServices _salesServices;
@@ -23,7 +24,6 @@ namespace POS.Backend.Features.Sales
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public async Task<IActionResult> GetAllOrders([FromQuery] PaginationFilter filter)
         {
             var result = await _salesServices.GetAllOrdersAsync(filter);
@@ -31,7 +31,6 @@ namespace POS.Backend.Features.Sales
         }
 
         [HttpGet("{id}")]
-        [AllowAnonymous]
         public async Task<IActionResult> GetOrder(Guid id)
         {
             var result = await _salesServices.GetOrderByIdAsync(id);

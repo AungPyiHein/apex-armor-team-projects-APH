@@ -19,6 +19,7 @@ namespace POS.Backend.Features.Merchants
         public string ContactEmail { get; set; }
         public string? Address { get; set; }
         public string? PhoneNumber { get; set; }
+        public string? LoyaltySystemId { get; set; }
         public bool isActive { get; set; }
         public int CategoryCount { get; set; }
         public int ProductCount { get; set; }
@@ -85,6 +86,7 @@ namespace POS.Backend.Features.Merchants
                     ContactEmail = m.ContactEmail,
                     Address = m.Address,
                     PhoneNumber = m.PhoneNumber,
+                    LoyaltySystemId = m.Id.ToString().ToUpperInvariant(),
                     isActive = m.IsActive,
                     CategoryCount = m.Categories.Count(c => c.DeletedAt == null),
                     ProductCount = m.Products.Count(p => p.DeletedAt == null)
@@ -207,6 +209,7 @@ namespace POS.Backend.Features.Merchants
                      ContactEmail = m.ContactEmail,
                      Address = m.Address,
                      PhoneNumber = m.PhoneNumber,
+                     LoyaltySystemId = m.Id.ToString().ToUpperInvariant(),
                      isActive = m.IsActive,
                      CategoryCount = m.Categories.Count(c => c.DeletedAt == null),
                      ProductCount = m.Products.Count(p => p.DeletedAt == null)

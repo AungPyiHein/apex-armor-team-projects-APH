@@ -40,6 +40,7 @@ namespace POS.Backend.Features.Category
         Task<Result> UpdateCategoryAsync(UpdateCategoryRequest request);
         Task<Result> DeleteCategoryAsync(Guid id);
         Task<Result> RestoreCategoryAsync(Guid id);
+        Task<Result<PagedResponse<CategoryResponseDto>>> GetDeletedCategoriesAsync(PaginationFilter filter);
     }
 
     public class CategoryService : ICategoryServices
@@ -185,6 +186,41 @@ namespace POS.Backend.Features.Category
             category.DeletedAt = null;
             await _context.SaveChangesAsync();
             return Result.Success();
+        }
+
+        public async Task<Result<PagedResponse<CategoryResponseDto>>> GetDeletedCategoriesAsync(PaginationFilter filter)
+        {
+            var query = _context.Categories
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => c.DeletedAt != null)
+                .AsQueryable();
+
+            if (_currentUser.Role == POS.Shared.Models.UserRole.MerchantAdmin || _currentUser.Role == POS.Shared.Models.UserRole.Staff)
+            {
+                query = query.Where(c => c.MerchantId == _currentUser.MerchantId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+            {
+                query = query.Where(c => EF.Functions.Like(c.Name, $"%{filter.SearchTerm}%"));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            var categories = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(c => new CategoryResponseDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Description = c.Description,
+                    ProductCount = _context.Products.IgnoreQueryFilters().Count(p => p.CategoryId == c.Id && p.DeletedAt == null)
+                }).ToListAsync();
+
+            var pagedResponse = new PagedResponse<CategoryResponseDto>(categories, totalRecords, filter.PageNumber, filter.PageSize);
+            return Result<PagedResponse<CategoryResponseDto>>.Success(pagedResponse);
         }
     }
 }

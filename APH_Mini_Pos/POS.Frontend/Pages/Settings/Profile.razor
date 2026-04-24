@@ -5,17 +5,20 @@
 @using POS.Frontend.Models.Users
 @using POS.Shared.Models
 @using POS.Frontend.Models.Merchants
+@using POS.Frontend.Models.Sales
+@using POS.Frontend.Services.Sales
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IUserService UserService
 @inject POS.Frontend.Services.Merchants.IMerchantService MerchantService
 @inject POS.Frontend.Services.Merchants.IBranchService BranchService
+@inject ISaleService SaleService
 
-<div class="max-w-3xl space-y-5">
+<div class="max-w-5xl mx-auto space-y-6">
 
     <div class="page-header">
         <div>
             <h2 class="page-title">My Profile</h2>
-            <p class="page-subtitle">Manage your personal settings</p>
+            <p class="page-subtitle">Manage your personal settings and view your performance</p>
         </div>
     </div>
 
@@ -27,28 +30,26 @@
     }
     else
     {
-        <!-- Profile info -->
-        <div class="card">
-            <div class="card-header border-none pb-0">
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Personal Information</p>
-            </div>
-            <div class="card-body">
-                <!-- Avatar row -->
-                <div class="flex items-center gap-5 border-b border-border pb-6 mb-6">
-                    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-accent to-indigo-500 text-white flex items-center justify-center text-3xl font-bold shadow-md select-none">
-                        @(string.IsNullOrEmpty(username) ? "?" : username.Substring(0, 1).ToUpper())
-                    </div>
-                    <div>
-                        <p class="text-base font-semibold text-gray-900 dark:text-gray-100">@(!string.IsNullOrEmpty(fullName) ? fullName : username)</p>
-                        <p class="text-sm text-muted">@email</p>
-                        @if (!string.IsNullOrEmpty(phoneNumber))
-                        {
-                            <p class="text-xs text-muted mt-1"><svg class="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>@phoneNumber</p>
-                        }
-                        <div class="mt-2">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Side: Profile Summary & Stats -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Profile Summary Card -->
+                <div class="card overflow-hidden">
+                    <div class="h-24 bg-gradient-to-r from-accent to-indigo-600"></div>
+                    <div class="px-6 pb-6 -mt-12 text-center">
+                        <div class="relative inline-block">
+                            <div class="w-24 h-24 rounded-full border-4 border-white dark:border-surface bg-gradient-to-br from-accent to-indigo-500 text-white flex items-center justify-center text-4xl font-bold shadow-xl overflow-hidden mb-4">
+                                <img src="@AvatarUrl" alt="Avatar" class="w-full h-full object-cover" />
+                            </div>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">@(!string.IsNullOrEmpty(fullName) ? fullName : username)</h3>
+                        <p class="text-sm text-muted mb-4 uppercase tracking-wider font-medium">@role</p>
+                        
+                        <div class="flex flex-wrap justify-center gap-2 mb-6">
                             @if (role == "Admin")
                             {
-                                <span class="badge bg-purple-100 text-purple-700">Admin</span>
+                                <span class="badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">System Admin</span>
                             }
                             else if (role == "MerchantAdmin")
                             {
@@ -56,149 +57,203 @@
                             }
                             else
                             {
-                                <span class="badge bg-gray-100 dark:bg-border/30 text-gray-700 dark:text-gray-300">Staff</span>
+                                <span class="badge bg-gray-100 dark:bg-border/30 text-gray-700 dark:text-gray-300">Store Staff</span>
                             }
+                            <span class="badge @(isActive ? "badge-success" : "badge-danger")">@(isActive ? "Active Account" : "Inactive")</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 pt-6 border-t border-border">
+                            <div>
+                                <p class="text-lg font-bold text-accent">@totalSalesCount</p>
+                                <p class="text-[10px] text-muted uppercase tracking-widest font-semibold">Total Sales</p>
+                            </div>
+                            <div>
+                                <p class="text-lg font-bold text-indigo-500">@totalSalesAmount.ToString("N0")</p>
+                                <p class="text-[10px] text-muted uppercase tracking-widest font-semibold">MMK Total</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Fields -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-                        <input type="text" class="form-input" @bind="editFullName" placeholder="John Doe" autocomplete="off" />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                        <input type="email" class="form-input" @bind="editEmail" placeholder="your@email.com" autocomplete="off" />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
-                        <input type="text" class="form-input" @bind="editPhoneNumber" placeholder="+123456789" autocomplete="off" />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                        <input type="text" class="form-input bg-gray-50 dark:bg-surface text-muted" value="@(role == "MerchantAdmin" ? "Merchant Admin" : role)" disabled />
-                    </div>
-                    @if (!string.IsNullOrEmpty(accountStatus))
-                    {
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Account Status</label>
-                            <input type="text" class="form-input bg-gray-50 dark:bg-surface text-muted" value="@accountStatus" disabled />
-                        </div>
-                    }
-                </div>
-
-                @if (!string.IsNullOrEmpty(infoMessage))
-                {
-                    <div class="mt-4 p-3 rounded-lg text-xs @(infoIsError ? "bg-red-50 dark:bg-red-900/20 text-red-600" : "bg-green-50 dark:bg-green-900/20 text-green-600")">
-                        @infoMessage
-                    </div>
-                }
-
-                <div class="flex justify-end mt-6">
-                    <button class="btn-primary" @onclick="SaveProfile" disabled="@isSavingProfile">
-                        @if (isSavingProfile)
-                        {
-                            <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                        }
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Security -->
-        <div class="card">
-            <div class="card-header">
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Security</p>
-            </div>
-            <div class="card-body space-y-4 max-w-sm">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Current Password</label>
-                    <input type="password" class="form-input" @bind="oldPassword" placeholder="••••••••" autocomplete="new-password" />
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">New Password</label>
-                    <input type="password" class="form-input" @bind="newPassword" placeholder="••••••••" autocomplete="new-password" />
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Confirm New Password</label>
-                    <input type="password" class="form-input" @bind="confirmPassword" placeholder="••••••••" autocomplete="new-password" />
-                </div>
-
-                @if (!string.IsNullOrEmpty(passwordMessage))
-                {
-                    <div class="p-3 rounded-lg text-xs @(passwordIsError ? "bg-red-50 dark:bg-red-900/20 text-red-600" : "bg-green-50 dark:bg-green-900/20 text-green-600")">
-                        @passwordMessage
-                    </div>
-                }
-
-                <div class="pt-2">
-                    <button class="btn-secondary" @onclick="UpdatePassword" disabled="@isSavingPassword">
-                        @if (isSavingPassword)
-                        {
-                            <div class="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2"></div>
-                        }
-                        Update Password
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Account Info (read-only context) -->
-        <div class="card">
-            <div class="card-header">
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Account Details</p>
-            </div>
-            <div class="card-body">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border">
-                        <p class="text-xs text-muted mb-1 uppercase tracking-wider font-medium">Name</p>
-        <p class="font-medium text-sm text-gray-700 dark:text-gray-300">@(!string.IsNullOrEmpty(fullName) ? fullName : username)</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border">
-                        <p class="text-xs text-muted mb-1 uppercase tracking-wider font-medium">User Role</p>
-                        <p class="font-medium text-sm text-gray-700 dark:text-gray-300">@(role == "MerchantAdmin" ? "Merchant Admin" : role)</p>
-                    </div>
+                <!-- Managed Context Info -->
+                <div class="card p-5 space-y-4">
+                    <h4 class="text-xs font-bold text-muted uppercase tracking-widest">Workspace</h4>
                     @if (!string.IsNullOrEmpty(merchantNameDisplay))
                     {
-                        <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border">
-                            <p class="text-xs text-muted mb-1 uppercase tracking-wider font-medium">Merchant</p>
-                            <p class="font-medium text-sm text-gray-700 dark:text-gray-300">@merchantNameDisplay</p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs text-muted">Merchant</p>
+                                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">@merchantNameDisplay</p>
+                            </div>
                         </div>
                     }
-                    @if (role == "MerchantAdmin" && branchList.Any())
+                    @if (role == "MerchantAdmin" && merchantBranches.Any())
                     {
-                        <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border sm:col-span-2">
-                            <p class="text-xs text-muted mb-2 uppercase tracking-wider font-medium">Managed Branches</p>
-                            <div class="flex flex-wrap gap-2">
-                                @foreach (var br in branchList)
+                        <div class="space-y-3 pt-2">
+                            <p class="text-[10px] text-muted uppercase tracking-widest font-bold mb-1">Managed Branches (@merchantBranches.Count)</p>
+                            <div class="grid grid-cols-1 gap-2">
+                                @foreach (var branch in merchantBranches)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">
-                                        <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                        @br.Name
-                                    </span>
+                                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-border/10 border border-gray-100 dark:border-border/20">
+                                        <div class="w-2 h-2 rounded-full bg-accent"></div>
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">@branch.Name</span>
+                                    </div>
                                 }
                             </div>
                         </div>
                     }
                     else if (!string.IsNullOrEmpty(branchNameDisplay))
                     {
-                        <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border">
-                            <p class="text-xs text-muted mb-1 uppercase tracking-wider font-medium">Assigned Branch</p>
-                            <p class="font-medium text-sm text-gray-700 dark:text-gray-300">@branchNameDisplay</p>
+                        <div class="flex items-center gap-3 border-t border-border pt-4">
+                            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs text-muted">Assigned Branch</p>
+                                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">@branchNameDisplay</p>
+                            </div>
                         </div>
                     }
-                    <div class="bg-gray-50 dark:bg-surface/50 rounded-xl p-4 border border-border sm:col-span-2">
-                        <p class="text-xs text-muted mb-1 uppercase tracking-wider font-medium font-mono">User ID</p>
-                        <p class="font-mono text-[10px] text-gray-500 dark:text-gray-400 break-all">@userId</p>
+                </div>
+            </div>
+
+            <!-- Right Side: Details & Forms -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Personal Details Tab -->
+                <div class="card">
+                    <div class="card-header border-none pb-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-1.5 h-6 bg-accent rounded-full"></div>
+                            <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">Personal Details</h3>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-muted uppercase">Full Name</label>
+                                <input type="text" class="form-input" @bind="editFullName" placeholder="Your Name" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-muted uppercase">Email</label>
+                                <input type="email" class="form-input" @bind="editEmail" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-muted uppercase">Phone Number</label>
+                                <input type="text" class="form-input" @bind="editPhoneNumber" />
+                            </div>
+                            <div class="space-y-1 opacity-50">
+                                <label class="text-xs font-bold text-muted uppercase">Username</label>
+                                <input type="text" class="form-input bg-gray-50 dark:bg-surface" value="@username" disabled />
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(infoMessage))
+                        {
+                            <div class="mb-4 p-3 rounded-xl border @(infoIsError ? "bg-red-50 border-red-100 text-red-700" : "bg-green-50 border-green-100 text-green-700") text-xs flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                @infoMessage
+                            </div>
+                        }
+
+                        <div class="flex justify-end">
+                            <button class="btn-primary" @onclick="SaveProfile" disabled="@isSavingProfile">
+                                @if (isSavingProfile) { <div class="w-4 h-4 shadow-neon border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 inline-block align-middle"></div> }
+                                Update Information
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card overflow-hidden">
+                    <div class="card-header border-none pb-0">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                                <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">Your Recent Activity</h3>
+                            </div>
+                            <a href="sales" class="text-accent text-xs hover:underline">View All Sales</a>
+                        </div>
+                    </div>
+                    <div class="card-body px-0">
+                        <div class="overflow-x-auto">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="pl-6">Sale ID</th>
+                                        <th>Date</th>
+                                        <th>Total</th>
+                                        <th class="pr-6 text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (!recentOrders.Any())
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-center py-10 text-muted italic">No recent sales processed by you</td>
+                                        </tr>
+                                    }
+                                    @foreach (var order in recentOrders)
+                                    {
+                                        <tr>
+                                            <td class="pl-6 font-mono text-[11px] text-muted">@order.Id.ToString().Substring(0, 8)...</td>
+                                            <td class="text-xs">@order.OrderDate.ToLocalTime().ToString("MMM dd, HH:mm")</td>
+                                            <td class="font-bold text-gray-700 dark:text-gray-300">@order.TotalAmount.ToString("N0")</td>
+                                            <td class="pr-6 text-right"><span class="badge badge-success">Completed</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security / Password -->
+                <div class="card">
+                    <div class="card-header border-none pb-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-1.5 h-6 bg-red-500 rounded-full"></div>
+                            <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">Security & Password</h3>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-muted uppercase mb-1 block">Current Password</label>
+                                <input type="password" class="form-input" @bind="oldPassword" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-muted uppercase mb-1 block">New Password</label>
+                                <input type="password" class="form-input" @bind="newPassword" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-muted uppercase mb-1 block">Confirm</label>
+                                <input type="password" class="form-input" @bind="confirmPassword" />
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(passwordMessage))
+                        {
+                            <div class="mt-4 p-3 rounded-xl border @(passwordIsError ? "bg-red-50 border-red-100 text-red-700" : "bg-green-50 border-green-100 text-green-700") text-xs">
+                                @passwordMessage
+                            </div>
+                        }
+
+                        <div class="flex justify-end mt-6">
+                            <button class="btn-secondary" @onclick="UpdatePassword" disabled="@isSavingPassword">
+                                @if (isSavingPassword) { <div class="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2 inline-block align-middle"></div> }
+                                Change Password
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     }
-
 </div>
 
 @code {
@@ -212,13 +267,16 @@
     private string fullName = "";
     private string phoneNumber = "";
     private string role = "";
-    private string accountStatus = "Active";
-    private string merchantIdDisplay = "";
-    private string branchIdDisplay = "";
+    private bool isActive = true;
     
     private string merchantNameDisplay = "";
     private string branchNameDisplay = "";
-    private List<BranchResponseDto> branchList = new();
+
+    // Stats
+    private int totalSalesCount = 0;
+    private decimal totalSalesAmount = 0;
+    private List<OrderResponseDto> recentOrders = new();
+    private List<BranchResponseDto> merchantBranches = new();
 
     // Editable fields
     private string editEmail = "";
@@ -236,73 +294,97 @@
 
     private Guid? currentUserId;
 
+    // Avatar Logic (Dynamic placeholder based on name)
+    private string AvatarUrl => $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(!string.IsNullOrEmpty(fullName) ? fullName : username)}&background=random&size=256";
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        username = user.Identity?.Name
-                   ?? user.FindFirst("unique_name")?.Value
-                   ?? user.FindFirst("sub")?.Value
-                   ?? "Unknown";
+        username = user.Identity?.Name ?? "User";
+        role = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Staff";
 
-        role = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
-               ?? user.FindFirst("role")?.Value
-               ?? "";
-
-        // JWT stores the GUID in the custom "UserId" claim; "sub" contains the username
-        var idClaim = user.FindFirst("UserId")?.Value
-                       ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                       ?? user.FindFirst("nameid")?.Value;
-
+        var idClaim = user.FindFirst("UserId")?.Value ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         userId = idClaim ?? "";
 
-        var merchantClaim = user.FindFirst("MerchantId")?.Value ?? user.FindFirst("merchantId")?.Value;
-        merchantIdDisplay = merchantClaim ?? "";
-
-        var branchClaim = user.FindFirst("BranchId")?.Value ?? user.FindFirst("branchId")?.Value;
-        branchIdDisplay = branchClaim ?? "";
-
-        // Load fresh data from API if we have a user ID
-            if (Guid.TryParse(idClaim, out var uid))
+        if (Guid.TryParse(userId, out var uid))
+        {
+            currentUserId = uid;
+            await LoadUserProfile();
+            await LoadUserStats();
+            if (role == "MerchantAdmin" && currentUserId.HasValue)
             {
-                currentUserId = uid;
-                try
-                {
-                    var response = await UserService.GetUserByIdAsync(uid);
-                    if (response.IsSuccess && response.Data != null)
-                    {
-                        email = response.Data.Email;
-                        editEmail = response.Data.Email;
-                        fullName = response.Data.FullName ?? "";
-                        editFullName = fullName;
-                        phoneNumber = response.Data.PhoneNumber ?? "";
-                        editPhoneNumber = phoneNumber;
-                        accountStatus = response.Data.IsActive ? "Active" : "Inactive";
-                        if (!string.IsNullOrEmpty(response.Data.MerchantName)) merchantNameDisplay = response.Data.MerchantName;
-                        if (!string.IsNullOrEmpty(response.Data.BranchName)) branchNameDisplay = response.Data.BranchName;
-
-                        // Fetch branches if MerchantAdmin
-                        if (role == "MerchantAdmin")
-                        {
-                            var branchesResponse = await BranchService.GetAllBranchesAsync(new PaginationFilter { PageSize = 100 });
-                            if (branchesResponse.IsSuccess && branchesResponse.Data != null)
-                            {
-                                branchList = branchesResponse.Data.Data.ToList();
-                            }
-                        }
-                    }
-                }
-                catch { /* fallback to claims only */ }
+                await LoadMerchantBranches();
             }
+        }
 
         isLoading = false;
+    }
+
+    private async Task LoadUserProfile()
+    {
+        try
+        {
+            var response = await UserService.GetUserByIdAsync(currentUserId.Value);
+            if (response.IsSuccess && response.Data != null)
+            {
+                email = response.Data.Email;
+                editEmail = email;
+                fullName = response.Data.FullName ?? "";
+                editFullName = fullName;
+                phoneNumber = response.Data.PhoneNumber ?? "";
+                editPhoneNumber = phoneNumber;
+                isActive = response.Data.IsActive;
+                merchantNameDisplay = response.Data.MerchantName ?? "";
+                branchNameDisplay = response.Data.BranchName ?? "";
+            }
+        }
+        catch { }
+    }
+
+    private async Task LoadUserStats()
+    {
+        try
+        {
+            var filter = new PaginationFilter 
+            { 
+                ProcessedById = currentUserId.Value,
+                PageSize = 5
+            };
+            
+            var response = await SaleService.GetAllOrdersAsync(filter);
+            if (response.IsSuccess && response.Data != null)
+            {
+                recentOrders = response.Data.Data.ToList();
+                totalSalesCount = response.Data.TotalRecords;
+                totalSalesAmount = response.Data.Data.Sum(o => o.TotalAmount);
+            }
+        }
+        catch { }
+    }
+
+    private async Task LoadMerchantBranches()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var merchantClaim = authState.User.FindFirst("MerchantId")?.Value;
+            if (Guid.TryParse(merchantClaim, out var mId))
+            {
+                var response = await BranchService.GetBranchesByMerchantIdAsync(mId, new PaginationFilter { PageSize = 50 });
+                if (response.IsSuccess && response.Data != null)
+                {
+                    merchantBranches = response.Data.Data.ToList();
+                }
+            }
+        }
+        catch { }
     }
 
     private async Task SaveProfile()
     {
         if (!currentUserId.HasValue) return;
-
         isSavingProfile = true;
         infoMessage = "";
 
@@ -318,6 +400,7 @@
             if (response.IsSuccess)
             {
                 email = editEmail;
+                fullName = editFullName;
                 infoMessage = "Profile updated successfully!";
                 infoIsError = false;
             }
@@ -342,13 +425,6 @@
     {
         passwordMessage = "";
 
-        if (string.IsNullOrWhiteSpace(oldPassword))
-        {
-            passwordMessage = "Please enter your current password.";
-            passwordIsError = true;
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(newPassword))
         {
             passwordMessage = "Please enter a new password.";
@@ -363,15 +439,6 @@
             return;
         }
 
-        if (newPassword.Length < 6)
-        {
-            passwordMessage = "Password must be at least 6 characters.";
-            passwordIsError = true;
-            return;
-        }
-
-        if (!currentUserId.HasValue) return;
-
         isSavingPassword = true;
 
         try
@@ -382,9 +449,9 @@
             {
                 passwordMessage = "Password updated successfully!";
                 passwordIsError = false;
-                oldPassword = "";
                 newPassword = "";
                 confirmPassword = "";
+                oldPassword = "";
             }
             else
             {

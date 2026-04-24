@@ -5,9 +5,11 @@
 @using POS.Shared.Models
 @using POS.Frontend.Services.Merchants
 @using POS.Frontend.Models.Merchants
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,MerchantAdmin,Staff")]
 @inject ICustomerService CustomerService
 @inject IMerchantService MerchantService
 @inject ISaleService SaleService
+@inject NavigationManager NavManager
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="space-y-5">
@@ -82,6 +84,7 @@
                         }
                         <th>Phone</th>
                         <th>Email</th>
+                        <th>Points</th>
                         <th>Total Spent</th>
                         <th>Recently Bought</th>
                         <th>Actions</th>
@@ -148,10 +151,25 @@
                                 }
                                 <td class="text-muted">@c.PhoneNumber</td>
                                 <td class="text-muted">@c.Email</td>
+                                <td class="font-semibold text-accent">
+                                    @if(CustomerPoints.TryGetValue(c.Id, out var points))
+                                    {
+                                        @(points.HasValue ? points.Value.ToString("N0") : "...")
+                                    }
+                                    else
+                                    {
+                                        <span>...</span>
+                                    }
+                                </td>
                                 <td class="font-semibold text-accent">@totalSpent.ToString("N0") MMK</td>
                                 <td class="text-muted text-xs truncate max-w-[150px]" title="@recentlyBought">@recentlyBought</td>
                                 <td>
-                                    <div class="flex gap-1">
+                                    <div class="flex gap-1 flex-wrap">
+                                        <button class="btn-ghost py-1 px-2 text-xs text-blue-500" @onclick='() => NavManager.NavigateTo($"/customers/{c.Id}")'>View</button>
+                                        <button class="inline-flex items-center gap-1 py-1 px-2 text-xs font-semibold rounded-lg bg-violet-50 hover:bg-violet-100 dark:bg-violet-900/20 dark:hover:bg-violet-900/40 text-violet-700 dark:text-violet-400 transition-colors border border-violet-200/60 dark:border-violet-700/30"
+                                                @onclick='() => NavManager.NavigateTo($"/customers/{c.Id}")'>
+                                            🎁 Rewards
+                                        </button>
                                         <button class="btn-ghost py-1 px-2 text-xs" @onclick="() => ShowEditModal(c)">Edit</button>
                                         <button class="btn-ghost py-1 px-2 text-xs text-red-500" @onclick="() => ShowDeleteConfirm(c.Id, c.Name)">Delete</button>
                                     </div>
@@ -195,15 +213,28 @@
                             </div>
                             <p class="text-sm text-gray-400 truncate"><svg class="w-3.5 h-3.5 inline-block mr-1 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>@c.PhoneNumber</p>
                             <p class="text-sm text-gray-400 mb-3 truncate"><svg class="w-3.5 h-3.5 inline-block mr-1 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>@c.Email</p>
+                            @if(CustomerPoints.TryGetValue(c.Id, out var points))
+                            {
+                                <div class="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-xl border border-gray-100 dark:border-gray-800 mb-2 flex justify-between">
+                                    <span class="text-xs font-semibold text-gray-500 uppercase">Points</span>
+                                    <span class="font-semibold text-accent">@(points.HasValue ? points.Value.ToString("N0") : "...")</span>
+                                </div>
+                            }
                             <div class="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-800 mb-2">
                                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Spent</p>
                                 <p class="font-semibold text-accent">@totalSpent.ToString("N0") MMK</p>
                             </div>
                             <p class="text-xs text-muted truncate" title="@recentlyBought">Purchases: @recentlyBought</p>
                         </div>
-                        <div class="flex gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                            <button class="btn-secondary flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowEditModal(c)">Edit</button>
-                            <button class="btn-danger flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowDeleteConfirm(c.Id, c.Name)">Delete</button>
+                        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                            <button class="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-sm shadow-purple-200 dark:shadow-purple-900/30 transition-all active:scale-95"
+                                    @onclick='() => NavManager.NavigateTo($"/customers/{c.Id}")'>
+                                🎁 View & Redeem Rewards
+                            </button>
+                            <div class="flex gap-2">
+                                <button class="btn-secondary flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowEditModal(c)">Edit</button>
+                                <button class="btn-danger flex-1 py-1.5 text-xs justify-center" @onclick="() => ShowDeleteConfirm(c.Id, c.Name)">Delete</button>
+                            </div>
                         </div>
                     </div>
                 }
@@ -301,6 +332,246 @@
     </div>
 }
 
+@if (ShowDetailsModal && SelectedCustomerDetails != null)
+{
+    var customerOrders = OrderList.Where(o => o.CustomerId == SelectedCustomerDetails.Id).OrderByDescending(o => o.OrderDate).ToList();
+    var allItems = customerOrders.SelectMany(o => o.Items.Select(i => new { o.OrderDate, Item = i })).ToList();
+
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-surface rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                <div class="flex flex-col">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 pb-0.5">@SelectedCustomerDetails.Name's Purchases</h3>
+                    @if (CustomerLoyalty != null)
+                    {
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-bold rounded-full uppercase tracking-wider">@CustomerLoyalty.Tier Tier</span>
+                            <span class="text-xs text-muted">Balance: <span class="font-bold text-gray-800 dark:text-gray-200">@CustomerLoyalty.CurrentBalance.ToString("N0") pts</span></span>
+                        </div>
+                    }
+                    else if (IsLoyaltyLoading)
+                    {
+                        <div class="h-4 w-24 bg-gray-100 animate-pulse rounded"></div>
+                    }
+                </div>
+                <button @onclick="CloseDetailsModal" class="text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                @if (allItems.Any())
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Item</th>
+                                <th class="text-right">Qty</th>
+                                <th class="text-right">SubTotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var purchasedItem in allItems)
+                            {
+                                <tr>
+                                    <td class="text-xs text-muted whitespace-nowrap">@purchasedItem.OrderDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                    <td class="font-medium text-gray-800 dark:text-gray-200">@purchasedItem.Item.ProductName</td>
+                                    <td class="text-right text-muted">@purchasedItem.Item.Quantity</td>
+                                    <td class="text-right font-semibold text-accent">@purchasedItem.Item.SubTotal.ToString("N0") MMK</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="text-center py-8 text-muted italic">
+                        No purchases found for this customer.
+                    </div>
+                }
+
+                @if (ActiveRewards.Any())
+                {
+                    var visibleRewards = ActiveRewards;
+
+                    @if (visibleRewards.Any())
+                    {
+                        <div class="mt-8">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-base">🎁</span>
+                                <h4 class="text-sm font-extrabold text-gray-800 dark:text-gray-200 uppercase tracking-widest">Rewards (@visibleRewards.Count)</h4>
+                                @if (CustomerLoyalty != null)
+                                {
+                                    <span class="ml-auto text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">
+                                        @CustomerLoyalty.CurrentBalance.ToString("N0") pts available
+                                    </span>
+                                }
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                @foreach (var reward in visibleRewards)
+                                {
+                                var canAfford = CustomerLoyalty != null && CustomerLoyalty.CurrentBalance >= reward.PointCost;
+                                var claimState = GetRewardClaimState(reward.Id);
+                                var isPending  = claimState == RewardClaimState.Pending;
+                                var isSuccess  = claimState == RewardClaimState.Success;
+                                var canCancel  = isPending && PendingTimeoutRewardIds.Contains(reward.Id);
+                                var ptsNeeded  = CustomerLoyalty != null ? reward.PointCost - (int)CustomerLoyalty.CurrentBalance : reward.PointCost;
+                                
+                                // Display name: strip "Merchant: " prefix if present, but keep original if split fails
+                                var displayName = reward.Name;
+                                if (reward.Name.Contains(":"))
+                                {
+                                    var parts = reward.Name.Split(':', 2);
+                                    if (parts.Length > 1) displayName = parts[1].Trim();
+                                }
+
+                                <div class="rounded-xl border overflow-hidden transition-all @(isSuccess ? "border-emerald-300/60 shadow-md" : isPending ? "border-yellow-300/60 shadow-md" : canAfford ? "border-violet-300/40 shadow-sm shadow-violet-100 dark:shadow-violet-900/20" : "border-gray-200 dark:border-gray-700 opacity-70")">
+                                    <!-- Card header gradient -->
+                                    <div class="px-4 pt-4 pb-3 @(isSuccess ? "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20" : isPending ? "bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20" : canAfford ? "bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20" : "bg-gray-50 dark:bg-gray-800/40")">
+                                        <div class="flex justify-between items-start">
+                                            <h5 class="font-bold text-sm text-gray-900 dark:text-gray-100 leading-tight">
+                                                @displayName
+                                            </h5>
+                                            <span class="ml-2 shrink-0 text-xs font-extrabold @(canAfford ? "text-violet-600 dark:text-violet-400" : "text-gray-500") bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-md border border-current/20">
+                                                @reward.PointCost.ToString("N0") pts
+                                            </span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(reward.Description))
+                                        {
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">@reward.Description</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="text-[10px] text-gray-400 italic mt-1">Available for redemption</p>
+                                        }
+                                        <!-- Affordability badge -->
+                                        <div class="mt-2">
+                                            @if (canAfford)
+                                            {
+                                                <span class="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 rounded-full">
+                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                    Can claim now!
+                                                </span>
+                                            }
+                                            else if (CustomerLoyalty != null)
+                                            {
+                                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                                                    Need @ptsNeeded.ToString("N0") more pts
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <!-- Card action -->
+                                    <div class="px-4 pb-4 pt-2 bg-white dark:bg-surface">
+                                        @if (isSuccess)
+                                        {
+                                            <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                                                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                                Reward claimed! Customer can collect.
+                                            </div>
+                                        }
+                                        else if (isPending)
+                                        {
+                                            <div class="space-y-2">
+                                                <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200/60 dark:border-yellow-800/30 text-yellow-700 dark:text-yellow-400 text-xs font-semibold">
+                                                    <div class="w-3 h-3 border-2 border-yellow-400/40 border-t-yellow-600 rounded-full animate-spin shrink-0"></div>
+                                                    Pending — waiting for reward system…
+                                                </div>
+                                                @if (canCancel)
+                                                {
+                                                    <button class="w-full py-1.5 text-xs rounded-xl border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-semibold transition-colors"
+                                                            @onclick="() => CancelRewardClaim(reward.Id)">
+                                                        Cancel Claim
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                        else if (claimState == RewardClaimState.Failed)
+                                        {
+                                            <div class="space-y-2">
+                                                <div class="flex items-start gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-800/30 text-red-700 dark:text-red-400 text-xs font-semibold">
+                                                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                                    <span>@(RewardClaimErrors.TryGetValue(reward.Id, out var errMsg) ? errMsg : "Claim failed. No points were consumed.")</span>
+                                                </div>
+                                                <button class="w-full py-1.5 text-xs rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold transition-colors"
+                                                        @onclick="() => { RewardClaimStates[reward.Id] = RewardClaimState.Idle; RewardClaimErrors.Remove(reward.Id); StateHasChanged(); }">
+                                                    Dismiss
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="w-full py-2 text-xs font-bold rounded-xl transition-all
+                                                @(canAfford
+                                                    ? "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-sm shadow-violet-200 dark:shadow-violet-900/30 active:scale-95"
+                                                    : "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed")"
+                                                    disabled="@(!canAfford || IsClaiming)"
+                                                    @onclick="() => ClaimReward(reward)">
+                                                @(canAfford ? "🎁 Claim Reward" : "Not enough points")
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+
+                @if (IsHistoryLoading)
+                {
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+                        <p class="text-xs text-muted mt-2">Loading loyalty history...</p>
+                    </div>
+                }
+                else if (CustomerLoyaltyHistory != null && CustomerLoyaltyHistory.Any())
+                {
+                    <div class="mt-8">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-base">🕒</span>
+                            <h4 class="text-sm font-extrabold text-gray-800 dark:text-gray-200 uppercase tracking-widest">Points History</h4>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Activity</th>
+                                    <th class="text-right">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in CustomerLoyaltyHistory.OrderByDescending(h => h.CreatedAt))
+                                {
+                                    <tr>
+                                        <td class="text-xs text-muted whitespace-nowrap">@item.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                        <td class="font-medium text-gray-800 dark:text-gray-200">
+                                            @if (!string.IsNullOrEmpty(item.RewardName))
+                                            {
+                                                <span>Claimed @item.RewardName</span>
+                                            }
+                                            else
+                                            {
+                                                @item.Description
+                                            }
+                                        </td>
+                                        <td class="text-right font-semibold @(item.PointDelta > 0 ? "text-emerald-500" : "text-red-500")">
+                                            @(item.PointDelta > 0 ? "+" : "")@item.PointDelta.ToString("N0")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="px-6 py-4 bg-gray-50 dark:bg-surface border-t border-gray-100 dark:border-gray-800 flex justify-end shrink-0">
+                <button @onclick="CloseDetailsModal" class="btn-ghost">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<CustomerResponseDto> CustomerList = new();
     private List<OrderResponseDto> OrderList = new();
@@ -317,8 +588,30 @@
     private string SearchTerm = "";
     private bool IsSearching = false;
     private bool isGridView = true;
+    private bool ShowDetailsModal = false;
+    private CustomerResponseDto? SelectedCustomerDetails;
+    private LoyaltyAccountResponse? CustomerLoyalty;
+    private List<LoyaltyReward> ActiveRewards = new();
+    private List<LoyaltyHistoryDto> CustomerLoyaltyHistory = new();
+    private bool IsLoyaltyLoading = false;
+    private bool IsHistoryLoading = false;
+    private bool IsClaiming = false;
+
+    // Reward claim state tracking
+    private enum RewardClaimState { Idle, Pending, Success, Failed }
+    private Dictionary<Guid, RewardClaimState> RewardClaimStates = new();
+    private Dictionary<Guid, string> RewardClaimErrors = new();
+    private HashSet<Guid> PendingTimeoutRewardIds = new();
+    private Dictionary<Guid, CancellationTokenSource> ClaimCancellationTokens = new();
+    private const int ClaimTimeoutSeconds = 8;
+    private const int ClaimPollIntervalMs = 1500;
+
+    private RewardClaimState GetRewardClaimState(Guid rewardId) =>
+        RewardClaimStates.TryGetValue(rewardId, out var s) ? s : RewardClaimState.Idle;
+
     private CancellationTokenSource? _searchCts;
     private int TotalRecords = 0;
+    private Dictionary<Guid, decimal?> CustomerPoints = new();
     
     // Pagination
     private int CurrentPage = 1;
@@ -436,6 +729,8 @@
                 CustomerList = response.Data.Data.ToList();
                 TotalRecords = response.Data.TotalRecords;
                 TotalPages = response.Data.TotalPages;
+                
+                _ = FetchLoyaltyPointsForCustomers(CustomerList);
             }
             else
             {
@@ -451,6 +746,41 @@
             IsLoading = false;
             IsSearching = false;
         }
+    }
+
+    private async Task FetchLoyaltyPointsForCustomers(List<CustomerResponseDto> customers)
+    {
+        foreach (var c in customers)
+        {
+            if (!CustomerPoints.ContainsKey(c.Id))
+            {
+                CustomerPoints[c.Id] = null;
+            }
+        }
+        InvokeAsync(StateHasChanged);
+
+        var tasks = customers.Select(async c =>
+        {
+            try
+            {
+                var result = await CustomerService.GetCustomerLoyaltyAsync(c.Id);
+                if (result.IsSuccess && result.Data != null)
+                {
+                    CustomerPoints[c.Id] = result.Data.CurrentBalance;
+                }
+                else
+                {
+                    CustomerPoints[c.Id] = 0;
+                }
+            }
+            catch
+            {
+                CustomerPoints[c.Id] = 0;
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await Task.WhenAll(tasks);
     }
 
     private void HandleSearch()
@@ -477,6 +807,127 @@
             Email = customer.Email
         };
         ShowModal = true;
+    }
+    private async Task ShowCustomerDetails(CustomerResponseDto customer)
+    {
+        SelectedCustomerDetails = customer;
+        ShowDetailsModal = true;
+
+        // Fetch loyalty data
+        IsLoyaltyLoading = true;
+        IsHistoryLoading = true;
+        CustomerLoyalty = null;
+        CustomerLoyaltyHistory = new();
+        
+        var loyaltyTask = CustomerService.GetCustomerLoyaltyAsync(customer.Id);
+        var rewardsTask = CustomerService.GetActiveRewardsAsync(customerId: customer.Id);
+        var historyTask = CustomerService.GetCustomerHistoryAsync(customer.Id);
+        await Task.WhenAll(loyaltyTask, rewardsTask, historyTask);
+
+        if (loyaltyTask.Result.IsSuccess)
+        {
+            CustomerLoyalty = loyaltyTask.Result.Data;
+        }
+        
+        if (rewardsTask.Result.IsSuccess)
+        {
+            ActiveRewards = rewardsTask.Result.Data ?? new();
+        }
+
+        if (historyTask.Result.IsSuccess)
+        {
+            CustomerLoyaltyHistory = historyTask.Result.Data ?? new();
+        }
+
+        IsLoyaltyLoading = false;
+        IsHistoryLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task ClaimReward(LoyaltyReward reward)
+    {
+        if (SelectedCustomerDetails == null || CustomerLoyalty == null) return;
+        if (RewardClaimStates.TryGetValue(reward.Id, out var existing) && existing == RewardClaimState.Pending) return;
+
+        IsClaiming = true;
+        RewardClaimStates[reward.Id] = RewardClaimState.Pending;
+        RewardClaimErrors.Remove(reward.Id);
+        PendingTimeoutRewardIds.Remove(reward.Id);
+        StateHasChanged();
+
+        // Fire the claim request
+        var response = await CustomerService.ClaimRewardAsync(new ClaimRewardRequest 
+        { 
+            CustomerId = SelectedCustomerDetails.Id, 
+            RewardId = reward.Id,
+            Notes = $"Claimed via POS Terminal by {SelectedCustomerDetails.Name}"
+        });
+
+        IsClaiming = false;
+
+        if (response.IsSuccess)
+        {
+            // Claim succeeded — points are consumed, reward is fulfilled
+            RewardClaimStates[reward.Id] = RewardClaimState.Success;
+            PendingTimeoutRewardIds.Remove(reward.Id);
+
+            // Refresh loyalty balance
+            var loyaltyRes = await CustomerService.GetCustomerLoyaltyAsync(SelectedCustomerDetails.Id);
+            if (loyaltyRes.IsSuccess)
+            {
+                CustomerLoyalty = loyaltyRes.Data;
+                if (SelectedCustomerDetails != null)
+                    CustomerPoints[SelectedCustomerDetails.Id] = loyaltyRes.Data?.CurrentBalance;
+            }
+
+            StateHasChanged();
+
+            // Auto-dismiss success banner after 5s
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                if (RewardClaimStates.TryGetValue(reward.Id, out var s) && s == RewardClaimState.Success)
+                    RewardClaimStates[reward.Id] = RewardClaimState.Idle;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            // Claim FAILED — no points were consumed by the Loyalty Engine.
+            // Show an error immediately; do NOT enter polling/pending state.
+            RewardClaimStates[reward.Id] = RewardClaimState.Failed;
+            RewardClaimErrors[reward.Id] = !string.IsNullOrWhiteSpace(response.Message)
+                ? response.Message
+                : "Reward service unavailable. No points were consumed.";
+            StateHasChanged();
+        }
+    }
+
+    private void CancelRewardClaim(Guid rewardId)
+    {
+        if (ClaimCancellationTokens.TryGetValue(rewardId, out var cts))
+        {
+            cts.Cancel();
+            ClaimCancellationTokens.Remove(rewardId);
+        }
+        RewardClaimStates[rewardId] = RewardClaimState.Idle;
+        PendingTimeoutRewardIds.Remove(rewardId);
+        StateHasChanged();
+    }
+
+    private void CloseDetailsModal()
+    {
+        // Cancel any in-flight claim polls
+        foreach (var cts in ClaimCancellationTokens.Values)
+            cts.Cancel();
+        ClaimCancellationTokens.Clear();
+        RewardClaimStates.Clear();
+        RewardClaimErrors.Clear();
+        PendingTimeoutRewardIds.Clear();
+
+        ShowDetailsModal = false;
+        SelectedCustomerDetails = null;
+        CustomerLoyalty = null;
     }
 
     private void CloseModal()

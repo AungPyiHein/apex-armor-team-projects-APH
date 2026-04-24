@@ -9,6 +9,7 @@ public class MerchantResponseDto
     public string ContactEmail { get; set; } = string.Empty;
     public string? Address { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? LoyaltySystemId { get; set; }
     public bool IsActive { get; set; }
     public int CategoryCount { get; set; }
     public int ProductCount { get; set; }
